@@ -1,0 +1,3490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Bolo Buddy — Read-Aloud Fluency Coach</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Lexend:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #FFF5EB 0%, #F0F7FF 50%, #F5F3FF 100%);
+      --primary: #FF7A59;
+      --primary-hover: #FF6238;
+      --secondary: #4E65FF;
+      --secondary-light: #92EFFD;
+      --accent: #FFD166;
+      --success: #06D6A0;
+      --success-bg: #E6FBF5;
+      --miss: #FF5A76;
+      --miss-bg: #FFEAEF;
+      --skipped: #94A3B8;
+      --text-dark: #1E293B;
+      --text-muted: #64748B;
+      --card-bg: rgba(255, 255, 255, 0.92);
+      --card-shadow: 0 12px 32px rgba(78, 101, 255, 0.09), 0 4px 12px rgba(0, 0, 0, 0.04);
+      --border-color: #E2E8F0;
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 10px;
+      --passage-font-size: 1.7rem;
+      --passage-font-family: 'Baloo 2', cursive, sans-serif;
+      --passage-letter-spacing: 0.02em;
+      --passage-word-spacing: normal;
+      --passage-line-height: 1.8;
+    }
+
+    /* Dark Mode (Midnight Owl) Variables */
+    body.dark-theme {
+      --bg-gradient: linear-gradient(135deg, #0B0F19 0%, #1E1B4B 40%, #0F172A 70%, #1E293B 100%);
+      --text-dark: #F8FAFC;
+      --text-muted: #94A3B8;
+      --card-bg: rgba(30, 41, 59, 0.9);
+      --card-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), 0 5px 15px rgba(0, 0, 0, 0.2);
+      --border-color: #334155;
+      --success-bg: rgba(6, 214, 160, 0.15);
+      --miss-bg: rgba(255, 90, 118, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: var(--bg-gradient);
+      background-size: 400% 400%;
+      animation: gradientShift 24s ease infinite;
+      color: var(--text-dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      overflow-x: hidden;
+      position: relative;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    @keyframes gradientShift {
+      0%   { background-position: 0% 50%; }
+      25%  { background-position: 100% 0%; }
+      50%  { background-position: 100% 100%; }
+      75%  { background-position: 0% 100%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* Background Particle Canvas & Layers */
+    #sparkleCanvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .bubbles-layer, .clouds-layer, .stars-layer {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .bubble {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0;
+      animation: bubbleFloat linear infinite;
+    }
+    @keyframes bubbleFloat {
+      0%   { transform: translateY(100vh) scale(0.3) rotate(0deg); opacity: 0; }
+      10%  { opacity: 0.7; }
+      90%  { opacity: 0.5; }
+      100% { transform: translateY(-10vh) scale(1) rotate(360deg); opacity: 0; }
+    }
+    .cloud {
+      position: absolute;
+      background: radial-gradient(ellipse, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 70%);
+      border-radius: 50%;
+      animation: cloudDrift linear infinite;
+    }
+    @keyframes cloudDrift {
+      0%   { transform: translateX(-30vw); }
+      100% { transform: translateX(130vw); }
+    }
+    .star {
+      position: absolute;
+      border-radius: 50%;
+      background: #FFD166;
+      animation: twinkle ease-in-out infinite alternate;
+    }
+    @keyframes twinkle {
+      0%   { opacity: 0.15; transform: scale(0.7); }
+      100% { opacity: 0.9; transform: scale(1.3); }
+    }
+
+    /* Container */
+    .app-container {
+      width: 100%;
+      max-width: 840px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding-bottom: 40px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Top Nav */
+    .top-nav {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .nav-btn {
+      background: var(--card-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 999px;
+      padding: 8px 15px;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 700;
+      font-size: 0.88rem;
+      color: var(--text-dark);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+    .nav-btn:hover {
+      background: #F1F5F9;
+      transform: translateY(-1px);
+    }
+    body.dark-theme .nav-btn:hover {
+      background: #334155;
+    }
+
+    /* XP & Level Badge in Top Nav */
+    .xp-badge-nav {
+      background: var(--card-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 999px;
+      padding: 6px 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(78, 101, 255, 0.1);
+    }
+    .xp-badge-nav:hover {
+      border-color: var(--secondary);
+      transform: scale(1.03);
+    }
+    .xp-nav-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .nav-level-name {
+      font-family: 'Baloo 2', cursive;
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: var(--secondary);
+      line-height: 1;
+    }
+    .xp-mini-track {
+      width: 65px;
+      height: 6px;
+      background: #E2E8F0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    body.dark-theme .xp-mini-track {
+      background: #334155;
+    }
+    .xp-mini-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #FF7A59, #FFD166);
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+    .nav-xp-pts {
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: var(--text-muted);
+    }
+
+    /* Mascot Header */
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      padding-top: 4px;
+    }
+    .mascot-wrap {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .mascot-svg {
+      width: 120px;
+      height: 120px;
+      filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.12));
+      transition: transform 0.3s ease;
+    }
+    .eye-blink {
+      transform-origin: center;
+      animation: blink 4s infinite;
+    }
+    @keyframes blink {
+      0%, 96%, 100% { transform: scaleY(1); }
+      98% { transform: scaleY(0.1); }
+    }
+    .owl-idle {
+      animation: floatIdle 3.2s ease-in-out infinite;
+    }
+    @keyframes floatIdle {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    .owl-listening {
+      animation: listenPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes listenPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.06) rotate(-2deg); }
+    }
+    .owl-happy {
+      animation: happyBounce 0.6s ease-in-out 3;
+    }
+    @keyframes happyBounce {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-16px) scale(1.1); }
+    }
+    .owl-encouraging {
+      transform: rotate(8deg);
+      transition: transform 0.4s ease;
+    }
+    .mascot-bubble {
+      background: var(--card-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 18px;
+      padding: 6px 16px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--secondary);
+      margin-top: -6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      position: relative;
+      max-width: 90%;
+      text-align: center;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--card-shadow);
+      border: 1px solid var(--border-color);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #FF7A59, #FFD166, #06D6A0, #4E65FF, #8B5CF6);
+      opacity: 0.8;
+    }
+
+    /* Daily Challenge Banner Card */
+    .daily-challenge-card {
+      background: linear-gradient(135deg, rgba(255, 209, 102, 0.22) 0%, rgba(255, 122, 89, 0.15) 100%);
+      border: 2px solid #FCD34D;
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    body.dark-theme .daily-challenge-card {
+      background: linear-gradient(135deg, rgba(255, 209, 102, 0.12) 0%, rgba(255, 122, 89, 0.08) 100%);
+      border-color: #B45309;
+    }
+    .daily-badge-tag {
+      background: #F59E0B;
+      color: #FFF;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      display: inline-block;
+      margin-bottom: 4px;
+    }
+    .daily-start-btn {
+      background: linear-gradient(135deg, #F59E0B, #D97706);
+      color: #FFF;
+      border: none;
+      border-radius: 999px;
+      padding: 10px 20px;
+      font-family: 'Baloo 2', cursive;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .daily-start-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(245, 158, 11, 0.5);
+    }
+
+    /* Custom Story / Upload Text Card */
+    .custom-story-box {
+      background: rgba(248, 250, 252, 0.8);
+      border: 2px dashed #CBD5E1;
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 20px;
+      transition: all 0.2s ease;
+    }
+    body.dark-theme .custom-story-box {
+      background: rgba(15, 23, 42, 0.6);
+      border-color: #334155;
+    }
+    .custom-story-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .custom-input, .custom-select, .custom-textarea {
+      width: 100%;
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.95rem;
+      background: var(--card-bg);
+      color: var(--text-dark);
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+    .custom-input:focus, .custom-select:focus, .custom-textarea:focus {
+      border-color: var(--secondary);
+    }
+    .preset-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .preset-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .preset-btn:hover {
+      background: var(--secondary);
+      color: #FFF;
+      border-color: var(--secondary);
+    }
+
+    /* Selectors */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .control-label {
+      font-weight: 800;
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .pill-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .pill-btn {
+      flex: 1;
+      min-width: 90px;
+      padding: 10px 14px;
+      background: var(--card-bg);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      font-family: 'Baloo 2', cursive, sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+    .pill-btn small {
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .pill-btn.active {
+      background: #EEF2FF;
+      border-color: var(--secondary);
+      color: var(--secondary);
+      box-shadow: 0 0 0 3px rgba(78, 101, 255, 0.15);
+      transform: translateY(-2px);
+    }
+    body.dark-theme .pill-btn.active {
+      background: #1E1B4B;
+      border-color: #818CF8;
+      color: #C7D2FE;
+    }
+
+    /* Passages Grid */
+    .passages-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .passage-card {
+      background: var(--card-bg);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    .passage-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(255, 122, 89, 0.15);
+    }
+    .passage-info h4 {
+      font-family: 'Baloo 2', cursive, sans-serif;
+      font-size: 1.25rem;
+      color: var(--text-dark);
+      margin-bottom: 4px;
+    }
+    .passage-info p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .start-arrow {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #FFF5EB;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: 800;
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+    body.dark-theme .start-arrow {
+      background: #334155;
+    }
+    .passage-card:hover .start-arrow {
+      background: var(--primary);
+      color: #FFFFFF;
+      transform: scale(1.1);
+    }
+
+    /* Reading Screen */
+    .screen-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .timer-badge {
+      font-family: 'Baloo 2', cursive, sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      background: #F1F5F9;
+      padding: 6px 16px;
+      border-radius: 999px;
+      color: var(--text-dark);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    body.dark-theme .timer-badge {
+      background: #0F172A;
+    }
+    .toggle-magic {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--secondary);
+      background: #EEF2FF;
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      user-select: none;
+    }
+    body.dark-theme .toggle-magic {
+      background: #1E1B4B;
+      color: #A5B4FC;
+    }
+
+    /* Large Passage Display with Custom Font & Size */
+    .passage-display {
+      background: var(--card-bg);
+      border: 3px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      font-family: var(--passage-font-family);
+      font-size: var(--passage-font-size);
+      line-height: var(--passage-line-height);
+      letter-spacing: var(--passage-letter-spacing);
+      word-spacing: var(--passage-word-spacing);
+      min-height: 220px;
+      position: relative;
+      margin-bottom: 24px;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.02);
+      transition: font-size 0.2s ease, font-family 0.2s ease;
+    }
+    body.dark-theme .passage-display {
+      background: #0F172A;
+    }
+    .word {
+      display: inline-block;
+      padding: 2px 8px;
+      margin: 3px 2px;
+      border-radius: 8px;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+    .word.correct {
+      background: var(--success-bg);
+      color: #047857;
+      border-bottom: 3px solid var(--success);
+      animation: popIn 0.3s ease;
+    }
+    body.dark-theme .word.correct {
+      color: #34D399;
+    }
+    .word.different {
+      background: var(--miss-bg);
+      color: #BE123C;
+      border-bottom: 3px solid var(--miss);
+      animation: shake 0.3s ease;
+    }
+    body.dark-theme .word.different {
+      color: #F87171;
+    }
+    .word.skipped {
+      color: var(--skipped);
+      border-bottom: 2px dashed var(--skipped);
+      opacity: 0.7;
+    }
+    .word.current {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+      animation: pulseTarget 1s infinite alternate;
+      border-radius: 6px;
+    }
+    .magic-active .word.current::before {
+      content: '';
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 40px;
+      background: radial-gradient(ellipse at bottom, rgba(255, 209, 102, 0.45) 0%, rgba(255, 209, 102, 0) 80%);
+      pointer-events: none;
+      animation: beamPulse 1s infinite alternate;
+    }
+    @keyframes beamPulse {
+      0% { opacity: 0.6; transform: translateX(-50%) scale(0.9); }
+      100% { opacity: 1; transform: translateX(-50%) scale(1.15); }
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.85); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-3px); }
+      75% { transform: translateX(3px); }
+    }
+    @keyframes pulseTarget {
+      0% { background: rgba(255, 209, 102, 0.25); transform: scale(1); }
+      100% { background: rgba(255, 209, 102, 0.65); transform: scale(1.05); }
+    }
+
+    /* Mic Button */
+    .mic-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .mic-btn {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #FF7A59, #FF5238);
+      border: none;
+      color: #FFFFFF;
+      font-size: 2.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 25px rgba(255, 122, 89, 0.45);
+      transition: all 0.25s ease;
+      outline: none;
+      position: relative;
+    }
+    .mic-btn:hover {
+      transform: scale(1.08);
+      box-shadow: 0 14px 30px rgba(255, 122, 89, 0.55);
+    }
+    .mic-btn.active {
+      background: linear-gradient(135deg, #06D6A0, #05B386);
+      box-shadow: 0 0 0 12px rgba(6, 214, 160, 0.25), 0 10px 25px rgba(6, 214, 160, 0.4);
+      animation: pulseMic 1.4s infinite;
+    }
+    @keyframes pulseMic {
+      0% { box-shadow: 0 0 0 0 rgba(6, 214, 160, 0.6), 0 10px 25px rgba(6, 214, 160, 0.4); }
+      70% { box-shadow: 0 0 0 20px rgba(6, 214, 160, 0), 0 10px 25px rgba(6, 214, 160, 0.4); }
+      100% { box-shadow: 0 0 0 0 rgba(6, 214, 160, 0), 0 10px 25px rgba(6, 214, 160, 0.4); }
+    }
+    .mic-label {
+      font-family: 'Baloo 2', cursive, sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-dark);
+    }
+    .interim-preview {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      font-style: italic;
+      min-height: 24px;
+      text-align: center;
+    }
+
+    /* Results Screen */
+    .results-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      text-align: center;
+    }
+    .stars-banner {
+      font-size: 3.5rem;
+      display: flex;
+      gap: 8px;
+      animation: popIn 0.5s ease;
+    }
+    .stats-row {
+      display: flex;
+      gap: 14px;
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .stat-box {
+      flex: 1;
+      min-width: 110px;
+      background: var(--card-bg);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      text-align: center;
+    }
+    .stat-val {
+      font-family: 'Baloo 2', cursive, sans-serif;
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--secondary);
+    }
+    .stat-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    /* Slow-Motion Replay Studio Card */
+    .replay-studio-box {
+      width: 100%;
+      text-align: left;
+      background: var(--card-bg);
+      border: 2px solid #C7D2FE;
+      border-radius: var(--radius-md);
+      padding: 18px;
+      box-shadow: 0 4px 14px rgba(78, 101, 255, 0.08);
+    }
+    body.dark-theme .replay-studio-box {
+      border-color: #3730A3;
+      background: #0F172A;
+    }
+    .replay-title {
+      font-family: 'Baloo 2', cursive, sans-serif;
+      font-size: 1.25rem;
+      color: var(--secondary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .replay-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 14px;
+    }
+    @media (max-width: 640px) {
+      .replay-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .replay-card {
+      background: #F8FAFC;
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    body.dark-theme .replay-card {
+      background: #1E293B;
+    }
+    .replay-card-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--text-dark);
+    }
+    .speed-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .speed-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .speed-pill.active {
+      background: var(--secondary);
+      color: #FFF;
+      border-color: var(--secondary);
+    }
+    .bulbul-play-btn {
+      background: var(--primary);
+      color: #FFF;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-family: 'Baloo 2', cursive;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s ease;
+    }
+    .bulbul-play-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Tricky Words */
+    .tricky-words-box {
+      width: 100%;
+      text-align: left;
+      background: var(--card-bg);
+      border: 2px solid #FEE2E2;
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+    }
+    body.dark-theme .tricky-words-box {
+      border-color: #7F1D1D;
+    }
+    .tricky-words-title {
+      font-family: 'Baloo 2', cursive, sans-serif;
+      font-size: 1.15rem;
+      color: #991B1B;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    body.dark-theme .tricky-words-title {
+      color: #F87171;
+    }
+    .tricky-word-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #FEE2E2;
+      border: 1px solid #FCA5A5;
+      padding: 6px 14px;
+      border-radius: 999px;
+      margin: 4px;
+      font-family: 'Baloo 2', cursive, sans-serif;
+      font-size: 1.15rem;
+      color: #991B1B;
+    }
+    body.dark-theme .tricky-word-item {
+      background: #450A0A;
+      border-color: #991B1B;
+      color: #FCA5A5;
+    }
+    .tricky-word-btn {
+      background: #FFF;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: #991B1B;
+      transition: transform 0.2s ease;
+    }
+    .tricky-word-btn:hover {
+      transform: scale(1.15);
+    }
+
+    /* Actions */
+    .action-row {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .action-btn {
+      flex: 1;
+      min-width: 140px;
+      padding: 14px 20px;
+      border-radius: var(--radius-md);
+      border: none;
+      font-family: 'Baloo 2', cursive, sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #FFF;
+      box-shadow: 0 4px 14px rgba(255, 122, 89, 0.35);
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+    }
+    .btn-secondary {
+      background: #EEF2FF;
+      color: var(--secondary);
+      border: 2px solid #C7D2FE;
+    }
+    body.dark-theme .btn-secondary {
+      background: #1E1B4B;
+      border-color: #4338CA;
+      color: #C7D2FE;
+    }
+    .btn-secondary:hover {
+      background: #E0E7FF;
+      transform: translateY(-2px);
+    }
+
+    /* Accessibility Settings Drawer */
+    .a11y-drawer {
+      background: var(--card-bg);
+      border: 2px solid var(--secondary);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 30px rgba(78, 101, 255, 0.15);
+      animation: popIn 0.3s ease;
+    }
+    .a11y-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 14px;
+    }
+    .a11y-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .a11y-label {
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: var(--text-dark);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Bolo's Closet & Outfits Grid */
+    .outfits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .outfit-card {
+      background: var(--card-bg);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .outfit-card.unlocked:hover {
+      transform: translateY(-3px) scale(1.02);
+      border-color: var(--secondary);
+      box-shadow: 0 8px 20px rgba(78, 101, 255, 0.18);
+    }
+    .outfit-card.active-equipped {
+      border-color: var(--success);
+      box-shadow: 0 0 0 3px rgba(6, 214, 160, 0.3);
+      background: var(--success-bg);
+    }
+    .outfit-card.locked {
+      filter: grayscale(85%);
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .outfit-preview-icon {
+      font-size: 2.8rem;
+      margin-bottom: 4px;
+    }
+    .outfit-name {
+      font-family: 'Baloo 2', cursive;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-dark);
+    }
+    .outfit-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    /* Modal Backdrop for Level-Up */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(8px);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-card {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      padding: 32px 24px;
+      max-width: 460px;
+      width: 100%;
+      text-align: center;
+      border: 3px solid var(--accent);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      animation: popIn 0.4s ease;
+    }
+
+    /* Stickers Screen */
+    .sticker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .sticker-item {
+      background: var(--card-bg);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px 8px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.2s ease;
+    }
+    .sticker-item.unlocked {
+      border-color: var(--accent);
+      box-shadow: 0 6px 16px rgba(255, 209, 102, 0.2);
+    }
+    .sticker-item.unlocked:hover {
+      transform: scale(1.08) rotate(3deg);
+    }
+    .sticker-item.locked {
+      filter: grayscale(100%);
+      opacity: 0.45;
+    }
+    .sticker-icon {
+      font-size: 2.8rem;
+    }
+    .sticker-name {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-dark);
+    }
+
+    /* Practice Drill Modal */
+    .drill-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 20px;
+    }
+    .drill-target-word {
+      font-family: var(--passage-font-family);
+      font-size: 3rem;
+      color: var(--secondary);
+      padding: 16px 36px;
+      background: #EEF2FF;
+      border-radius: var(--radius-lg);
+      border: 3px solid #C7D2FE;
+      margin: 10px 0;
+    }
+    body.dark-theme .drill-target-word {
+      background: #1E1B4B;
+      border-color: #4338CA;
+      color: #93C5FD;
+    }
+
+    /* Teacher View */
+    .teacher-table-wrap {
+      overflow-x: auto;
+      margin-top: 16px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      background: var(--card-bg);
+    }
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+    th {
+      background: #F8FAFC;
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+    body.dark-theme th {
+      background: #0F172A;
+    }
+    .chart-box {
+      width: 100%;
+      height: 220px;
+      background: var(--card-bg);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      margin: 16px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Alert Banner */
+    .alert-banner {
+      background: #FEF3C7;
+      border: 2px solid #F59E0B;
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #92400E;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    /* Confetti Canvas */
+    #confettiCanvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="confettiCanvas"></canvas>
+  <canvas id="sparkleCanvas"></canvas>
+
+  <div class="bubbles-layer" id="bubblesLayer"></div>
+  <div class="clouds-layer" id="cloudsLayer"></div>
+  <div class="stars-layer" id="starsLayer"></div>
+
+  <div class="app-container">
+    <!-- Top Bar & Mascot -->
+    <header>
+      <div class="top-nav">
+        <button id="homeNavBtn" class="nav-btn" onclick="goToHome()">
+          <span>🏠</span> Home
+        </button>
+
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
+          <!-- Level & XP Badge -->
+          <div id="xpBadgeBtn" class="xp-badge-nav" onclick="showScreen('outfitsScreen')" title="Click to view Bolo's Closet & Levels!">
+            <span id="navLevelIcon" style="font-size:1.2rem;">🐣</span>
+            <div class="xp-nav-info">
+              <span id="navLevelName" class="nav-level-name">Baby Owl</span>
+              <div class="xp-mini-track">
+                <div id="navXpFill" class="xp-mini-fill" style="width: 30%;"></div>
+              </div>
+            </div>
+            <span id="navXpText" class="nav-xp-pts">100 XP</span>
+          </div>
+
+          <button id="outfitsNavBtn" class="nav-btn" onclick="showScreen('outfitsScreen')">
+            <span>👗</span> Closet
+          </button>
+          <button id="stickersNavBtn" class="nav-btn" onclick="showScreen('stickersScreen')">
+            <span>⭐</span> Stickers
+          </button>
+          <button id="a11yNavBtn" class="nav-btn" onclick="toggleA11yDrawer()">
+            <span>⚙️</span> Accessibility
+          </button>
+          <button id="teacherNavBtn" class="nav-btn" onclick="showScreen('teacherScreen')">
+            <span>📊</span> Teacher
+          </button>
+        </div>
+      </div>
+
+      <!-- Mascot Bolo with Dynamic Outfits -->
+      <div class="mascot-wrap">
+        <svg id="mascotSvg" class="mascot-svg owl-idle" viewBox="0 0 120 120">
+          <!-- Ears / Tufts -->
+          <polygon id="leftEar" points="24,35 12,10 38,22" fill="#8B5CF6"/>
+          <polygon id="rightEar" points="96,35 108,10 82,22" fill="#8B5CF6"/>
+          <!-- Wings -->
+          <ellipse cx="22" cy="72" rx="14" ry="26" fill="#7C3AED" transform="rotate(15 22 72)"/>
+          <ellipse cx="98" cy="72" rx="14" ry="26" fill="#7C3AED" transform="rotate(-15 98 72)"/>
+          <!-- Body -->
+          <ellipse cx="60" cy="65" rx="42" ry="46" fill="#A78BFA"/>
+          <!-- Belly -->
+          <ellipse cx="60" cy="74" rx="28" ry="32" fill="#EDE9FE"/>
+          <!-- Feather markings -->
+          <path d="M52,65 Q60,72 68,65" stroke="#C4B5FD" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M48,78 Q60,86 72,78" stroke="#C4B5FD" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M52,90 Q60,96 68,90" stroke="#C4B5FD" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <!-- Eyes -->
+          <circle cx="43" cy="46" r="17" fill="#FFFFFF"/>
+          <circle cx="77" cy="46" r="17" fill="#FFFFFF"/>
+          <g class="eye-blink">
+            <circle cx="45" cy="46" r="9" fill="#1E293B"/>
+            <circle cx="75" cy="46" r="9" fill="#1E293B"/>
+            <circle cx="48" cy="43" r="3.5" fill="#FFFFFF"/>
+            <circle cx="78" cy="43" r="3.5" fill="#FFFFFF"/>
+          </g>
+          <!-- Beak -->
+          <polygon points="54,54 66,54 60,65" fill="#F59E0B"/>
+          <!-- Feet -->
+          <ellipse cx="46" cy="110" rx="8" ry="4" fill="#F59E0B"/>
+          <ellipse cx="74" cy="110" rx="8" ry="4" fill="#F59E0B"/>
+
+          <!-- DYNAMIC OUTFIT OVERLAYS -->
+          <!-- 1. Scholar Outfit (Glasses + Cap) -->
+          <g id="outfitScholar" class="outfit-layer hidden">
+            <circle cx="43" cy="46" r="14" fill="none" stroke="#1E293B" stroke-width="3"/>
+            <circle cx="77" cy="46" r="14" fill="none" stroke="#1E293B" stroke-width="3"/>
+            <line x1="57" y1="46" x2="63" y2="46" stroke="#1E293B" stroke-width="3"/>
+            <polygon points="60,6 20,20 60,34 100,20" fill="#1E1B4B"/>
+            <rect x="44" y="24" width="32" height="10" fill="#312E81" rx="2"/>
+            <line x1="60" y1="20" x2="22" y2="28" stroke="#F59E0B" stroke-width="2.5"/>
+            <circle cx="22" cy="28" r="3" fill="#F59E0B"/>
+          </g>
+
+          <!-- 2. Royal Monarch Outfit (Crown + Royal Ruby) -->
+          <g id="outfitRoyal" class="outfit-layer hidden">
+            <polygon points="34,20 42,4 60,16 78,4 86,20" fill="#F59E0B" stroke="#D97706" stroke-width="2"/>
+            <circle cx="42" cy="5" r="3" fill="#EF4444"/>
+            <circle cx="60" cy="17" r="3.5" fill="#3B82F6"/>
+            <circle cx="78" cy="5" r="3" fill="#EF4444"/>
+            <circle cx="60" cy="80" r="6" fill="#EF4444" stroke="#F59E0B" stroke-width="2"/>
+          </g>
+
+          <!-- 3. Magic Wizard Outfit (Starry Wizard Hat + Wand) -->
+          <g id="outfitWizard" class="outfit-layer hidden">
+            <polygon points="60,-8 30,22 90,22" fill="#3B82F6"/>
+            <ellipse cx="60" cy="22" rx="34" ry="7" fill="#1D4ED8"/>
+            <polygon points="56,6 60,1 64,6 69,7 65,11 67,16 60,13 54,16 56,11 52,7" fill="#FCD34D"/>
+            <line x1="104" y1="62" x2="118" y2="38" stroke="#78350F" stroke-width="3"/>
+            <circle cx="118" cy="38" r="5" fill="#FDE047"/>
+          </g>
+
+          <!-- 4. Superhero Outfit (Mask + Red Cape) -->
+          <g id="outfitHero" class="outfit-layer hidden">
+            <path d="M26,62 Q6,90 2,115 Q28,105 38,88 Z" fill="#DC2626"/>
+            <path d="M94,62 Q114,90 118,115 Q92,105 82,88 Z" fill="#DC2626"/>
+            <path d="M30,46 Q60,36 90,46 Q78,56 60,50 Q42,56 30,46 Z" fill="#1E293B"/>
+            <circle cx="43" cy="46" r="6" fill="#FFF"/>
+            <circle cx="77" cy="46" r="6" fill="#FFF"/>
+            <circle cx="45" cy="46" r="3.5" fill="#1E293B"/>
+            <circle cx="75" cy="46" r="3.5" fill="#1E293B"/>
+          </g>
+
+          <!-- 5. Cosmic Astronaut Outfit (Helmet) -->
+          <g id="outfitAstronaut" class="outfit-layer hidden">
+            <circle cx="60" cy="52" r="46" fill="rgba(147, 197, 253, 0.25)" stroke="#CBD5E1" stroke-width="4"/>
+            <ellipse cx="60" cy="50" rx="36" ry="26" fill="rgba(30, 41, 59, 0.25)" stroke="#38BDF8" stroke-width="2"/>
+            <path d="M38,36 Q60,28 78,34" stroke="#FFF" stroke-width="3" fill="none" opacity="0.75" stroke-linecap="round"/>
+          </g>
+        </svg>
+        <div id="mascotBubble" class="mascot-bubble">Hi, I'm Bolo! Let's read together! 🦉</div>
+      </div>
+    </header>
+
+    <!-- ACCESSIBILITY SETTINGS DRAWER -->
+    <div id="a11yDrawer" class="a11y-drawer hidden">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:1.3rem;">👁️</span>
+          <h3 style="font-family:'Baloo 2', cursive; font-size:1.3rem; margin:0;">Reading & Accessibility Settings</h3>
+        </div>
+        <button class="nav-btn" onclick="toggleA11yDrawer()" style="padding:4px 10px; font-size:0.85rem;">✕ Close</button>
+      </div>
+
+      <div class="a11y-grid">
+        <!-- Dark Mode Toggle -->
+        <div class="a11y-item">
+          <label class="a11y-label">🌙 Theme Mode</label>
+          <div class="pill-group" style="margin-top:4px;">
+            <button id="themeLightBtn" class="pill-btn active" onclick="setTheme('light')">☀️ Daytime</button>
+            <button id="themeDarkBtn" class="pill-btn" onclick="setTheme('dark')">🌙 Midnight Owl</button>
+          </div>
+        </div>
+
+        <!-- Font Family Selector (Lexend, OpenDyslexic mode, Baloo 2, Nunito) -->
+        <div class="a11y-item">
+          <label class="a11y-label">📖 Reading Font</label>
+          <select id="fontFamilySelect" class="custom-select" onchange="setFontFamily(this.value)" style="margin-top:4px;">
+            <option value="'Baloo 2', cursive, sans-serif">Baloo 2 (Playful Rounded)</option>
+            <option value="'Lexend', sans-serif">Lexend (Dyslexia & Fluency Friendly)</option>
+            <option value="'Nunito', sans-serif">Nunito (Clean Standard)</option>
+          </select>
+        </div>
+
+        <!-- Font Size Slider -->
+        <div class="a11y-item">
+          <label class="a11y-label">
+            <span>🔠 Font Size</span>
+            <span id="fontSizeValLabel" style="font-weight:800; color:var(--secondary);">1.7rem</span>
+          </label>
+          <input type="range" id="fontSizeSlider" min="1.3" max="2.6" step="0.1" value="1.7" oninput="setFontSize(this.value)" style="width:100%; margin-top:8px;">
+          <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted);">
+            <span>Small</span>
+            <span>Standard</span>
+            <span>Jumbo</span>
+          </div>
+        </div>
+
+        <!-- Wide Spacing Toggle -->
+        <div class="a11y-item">
+          <label class="a11y-label">↔️ Letter & Word Spacing</label>
+          <div class="pill-group" style="margin-top:4px;">
+            <button id="spacingNormalBtn" class="pill-btn active" onclick="setSpacing('normal')">Normal</button>
+            <button id="spacingWideBtn" class="pill-btn" onclick="setSpacing('wide')">Wide Spacing</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unsupported / Mic Notice -->
+    <div id="unsupportedAlert" class="alert-banner hidden">
+      <span>⚠️</span>
+      <div>Your browser doesn't support Web Speech. Please open Bolo Buddy in <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> for speech recognition!</div>
+    </div>
+
+    <!-- SCREEN 1: HOME -->
+    <div id="homeScreen" class="card">
+      <!-- 🌟 TODAY'S DAILY CHALLENGE BANNER -->
+      <div id="dailyChallengeBanner" class="daily-challenge-card">
+        <div style="flex:1;">
+          <span class="daily-badge-tag">🌟 Daily Quest (+100 XP)</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <h4 id="dailyStoryTitle" style="font-family:'Baloo 2', cursive; font-size:1.35rem; margin:0; color:var(--text-dark);">
+              The Whispering Windmill
+            </h4>
+            <span id="dailyStatusBadge" style="font-size:0.8rem; font-weight:800; background:#ECFDF5; color:#047857; padding:2px 8px; border-radius:999px;">
+              Ready! 🔥
+            </span>
+          </div>
+          <p id="dailyStoryPreview" style="font-size:0.9rem; color:var(--text-muted); margin:4px 0 0 0; line-height:1.4;">
+            Read today's featured story to boost your streak and earn an exclusive daily sticker!
+          </p>
+        </div>
+        <button id="dailyStartBtn" class="daily-start-btn" onclick="startDailyChallenge()">
+          <span>⚡ Read Daily Quest</span>
+        </button>
+      </div>
+
+      <!-- ✍️ UPLOAD / PASTE YOUR OWN TEXT CARD -->
+      <div class="custom-story-box">
+        <div class="custom-story-header" onclick="toggleCustomStoryForm()">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.4rem;">✍️</span>
+            <h3 style="font-family:'Baloo 2', cursive; font-size:1.25rem; margin:0; color:var(--text-dark);">
+              Paste Your Own Story (Custom Text)
+            </h3>
+          </div>
+          <span id="customStoryChevron" style="font-size:0.95rem; font-weight:800; color:var(--secondary);">+ Click to Paste</span>
+        </div>
+
+        <div id="customStoryForm" class="hidden" style="margin-top:14px;">
+          <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:10px;">
+            Paste any paragraph, poem, or textbook chapter. Bolo will instantly convert it into a live read-aloud fluency coach!
+          </p>
+
+          <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+            <input type="text" id="customTitleInput" placeholder="Story Title (e.g., The Moon Rocket)" class="custom-input" style="flex:2; min-width:200px;">
+            <select id="customLangSelect" class="custom-select" style="flex:1; min-width:140px;">
+              <option value="en-IN">English (en-IN)</option>
+              <option value="hi-IN">हिन्दी (hi-IN)</option>
+              <option value="mr-IN">मराठी (mr-IN)</option>
+            </select>
+          </div>
+
+          <textarea id="customTextInput" placeholder="Paste or type any story here... (e.g. A friendly blue alien landed in our backyard. He loved eating strawberry ice cream with our cat.)" class="custom-textarea" rows="3"></textarea>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; flex-wrap:wrap; gap:8px;">
+            <div class="preset-pills">
+              <span style="font-size:0.8rem; font-weight:700; color:var(--text-muted);">Quick Demos:</span>
+              <button type="button" class="preset-btn" onclick="loadPresetStory('space')">🚀 Space Cat</button>
+              <button type="button" class="preset-btn" onclick="loadPresetStory('hindi_birbal')">👑 बीरबल</button>
+              <button type="button" class="preset-btn" onclick="loadPresetStory('marathi_shetkari')">🌾 शेतकरी</button>
+            </div>
+            <button class="action-btn btn-primary" onclick="launchCustomStory()" style="padding:10px 22px; font-size:1.05rem;">
+              <span>🚀</span> Start Reading My Story
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BUILT-IN STORY CATALOG -->
+      <div class="control-group">
+        <span class="control-label">1. Choose Language / भाषा</span>
+        <div class="pill-group">
+          <button class="pill-btn active" data-lang="en-IN" onclick="setLanguage('en-IN')">
+            English (India)
+            <small>en-IN</small>
+          </button>
+          <button class="pill-btn" data-lang="hi-IN" onclick="setLanguage('hi-IN')">
+            हिन्दी (Hindi)
+            <small>hi-IN</small>
+          </button>
+          <button class="pill-btn" data-lang="mr-IN" onclick="setLanguage('mr-IN')">
+            मराठी (Marathi)
+            <small>mr-IN</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">2. Select Level</span>
+        <div class="pill-group">
+          <button class="pill-btn active" data-level="Easy" onclick="setLevel('Easy')">
+            🌱 Easy
+            <small>2-3 sentences</small>
+          </button>
+          <button class="pill-btn" data-level="Medium" onclick="setLevel('Medium')">
+            🌿 Medium
+            <small>3-4 sentences</small>
+          </button>
+          <button class="pill-btn" data-level="Hard" onclick="setLevel('Hard')">
+            🌳 Hard
+            <small>Rich story</small>
+          </button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <span class="control-label">3. Pick a Story</span>
+        <div id="passagesList" class="passages-grid">
+          <!-- Dynamically populated passages -->
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: READING SCREEN -->
+    <div id="readingScreen" class="card hidden">
+      <div class="screen-header">
+        <button class="nav-btn" onclick="stopAndBackToHome()">
+          <span>←</span> Back
+        </button>
+        <div id="magicToggleBtn" class="toggle-magic" onclick="toggleMagicHighlight()">
+          <span>🔦</span> Magic Highlight: <span id="magicStatusText">ON</span>
+        </div>
+        <div class="timer-badge">
+          <span>⏱️</span> <span id="timerVal">00:00</span>
+        </div>
+      </div>
+
+      <div id="passageDisplay" class="passage-display magic-active">
+        <!-- Spans generated dynamically -->
+      </div>
+
+      <div class="interim-preview" id="interimText">Press the mic when you're ready to read aloud!</div>
+
+      <div class="mic-container">
+        <button id="micBtn" class="mic-btn" onclick="toggleReadingSession()">
+          🎙️
+        </button>
+        <span id="micLabel" class="mic-label">Start Reading</span>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: RESULTS SCREEN -->
+    <div id="resultsScreen" class="card hidden">
+      <div class="results-wrap">
+        <div id="starsBanner" class="stars-banner">⭐⭐⭐</div>
+        <h2 id="resultsHeading" style="font-family:'Baloo 2', cursive; font-size:2rem; color:var(--text-dark);">
+          Fantastic Reading! 🎉
+        </h2>
+        <div id="xpEarnedPill" style="font-family:'Baloo 2', cursive; font-size:1.2rem; font-weight:800; color:#047857; background:#ECFDF5; padding:4px 16px; border-radius:999px;">
+          +85 XP Earned! 🌟
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-box">
+            <div id="resWcpm" class="stat-val">0</div>
+            <div class="stat-label">Words Correct / Min</div>
+          </div>
+          <div class="stat-box">
+            <div id="resAccuracy" class="stat-val">0%</div>
+            <div class="stat-label">Accuracy</div>
+          </div>
+          <div class="stat-box">
+            <div id="resTime" class="stat-val">0s</div>
+            <div class="stat-label">Total Time</div>
+          </div>
+        </div>
+
+        <!-- 🎧 SLOW-MOTION REPLAY & VOICE COMPARE STUDIO -->
+        <div class="replay-studio-box">
+          <div class="replay-title">
+            <span>🎧</span> Slow-Motion Replay & Voice Compare Studio
+          </div>
+          <p style="font-size:0.88rem; color:var(--text-muted); margin:0;">
+            Listen to your own voice recording side-by-side with Bulbul's natural Indian voice!
+          </p>
+
+          <div class="replay-grid">
+            <!-- Kid's Voice Recording -->
+            <div class="replay-card">
+              <div class="replay-card-header">
+                <span>🎤</span>
+                <span>Your Recording</span>
+              </div>
+              <audio id="userAudioPlayer" controls style="width:100%; height:40px; margin:4px 0;"></audio>
+              <div>
+                <span style="font-size:0.78rem; font-weight:800; color:var(--text-muted);">Playback Speed:</span>
+                <div class="speed-pills" id="userSpeedPills" style="margin-top:4px;">
+                  <button class="speed-pill active" data-speed="1.0" onclick="setUserAudioSpeed(1.0)">1.0x (Normal)</button>
+                  <button class="speed-pill" data-speed="0.75" onclick="setUserAudioSpeed(0.75)">0.75x (Gentle)</button>
+                  <button class="speed-pill" data-speed="0.5" onclick="setUserAudioSpeed(0.5)">0.5x (Slow-Mo 🐢)</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bulbul Teacher Voice -->
+            <div class="replay-card">
+              <div class="replay-card-header">
+                <span>🦉</span>
+                <span>Buddy Bulbul (Teacher Voice)</span>
+              </div>
+              <button class="bulbul-play-btn" id="bulbulPlayBtn" onclick="toggleBulbulReplay()">
+                <span>🔊</span> Listen to Bulbul
+              </button>
+              <div>
+                <span style="font-size:0.78rem; font-weight:800; color:var(--text-muted);">Bulbul Speed:</span>
+                <div class="speed-pills" id="bulbulSpeedPills" style="margin-top:4px;">
+                  <button class="speed-pill" data-rate="1.0" onclick="setBulbulReplayRate(1.0)">1.0x</button>
+                  <button class="speed-pill active" data-rate="0.8" onclick="setBulbulReplayRate(0.8)">0.8x</button>
+                  <button class="speed-pill" data-rate="0.6" onclick="setBulbulReplayRate(0.6)">0.6x (Slow 🦉)</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tricky Words Box -->
+        <div id="trickyWordsBox" class="tricky-words-box">
+          <div class="tricky-words-title">
+            <span>🎯</span> Tricky Words to Practice (<span id="trickyCount">0</span>)
+          </div>
+          <div id="trickyWordsList"></div>
+        </div>
+
+        <div class="action-row">
+          <button id="drillBtn" class="action-btn btn-secondary" onclick="startPracticeDrill()">
+            <span>🧩</span> Practice Drill
+          </button>
+          <button class="action-btn btn-primary" onclick="readPassageAgain()">
+            <span>🔄</span> Read Again
+          </button>
+          <button class="action-btn btn-secondary" onclick="goToHome()">
+            <span>📚</span> Pick Story
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: PRACTICE DRILL -->
+    <div id="drillScreen" class="card hidden">
+      <div class="screen-header">
+        <button class="nav-btn" onclick="showScreen('resultsScreen')">
+          <span>←</span> Back to Results
+        </button>
+        <span id="drillCounter" style="font-weight:800; color:var(--text-muted);">Word 1 of 3</span>
+      </div>
+
+      <div class="drill-view">
+        <div style="font-size:1.1rem; color:var(--text-muted); font-weight:700;">
+          Listen to Buddy, then tap the mic and say the word!
+        </div>
+
+        <div id="drillWordDisplay" class="drill-target-word">banana</div>
+
+        <div style="display:flex; gap:12px;">
+          <button class="nav-btn" onclick="speakCurrentDrillWord()" style="background:var(--card-bg); border-color:var(--secondary); color:var(--secondary); padding:10px 20px;">
+            <span>🔊</span> Hear Buddy Say It
+          </button>
+        </div>
+
+        <div class="mic-container" style="margin-top:16px;">
+          <button id="drillMicBtn" class="mic-btn" onclick="toggleDrillListen()">
+            🎙️
+          </button>
+          <span id="drillMicLabel" class="mic-label">Tap to Repeat</span>
+        </div>
+
+        <div id="drillFeedback" style="font-family:'Baloo 2', cursive; font-size:1.5rem; min-height:40px; font-weight:700;"></div>
+      </div>
+    </div>
+
+    <!-- SCREEN 5: BOLO'S CLOSET & OUTFITS -->
+    <div id="outfitsScreen" class="card hidden">
+      <div class="screen-header">
+        <button class="nav-btn" onclick="goToHome()">
+          <span>←</span> Back
+        </button>
+        <h3 style="font-family:'Baloo 2', cursive; font-size:1.5rem;">Bolo's Outfit Closet</h3>
+        <span id="closetLevelBadge" style="font-weight:800; color:var(--secondary);">Lvl 2: Baby Owl</span>
+      </div>
+      <p style="color:var(--text-muted); font-size:0.95rem;">
+        Read more stories, earn XP, and unlock charming outfits for Bolo! Click any unlocked outfit to dress Bolo up!
+      </p>
+
+      <div id="outfitsGrid" class="outfits-grid">
+        <!-- Dynamically rendered outfits -->
+      </div>
+    </div>
+
+    <!-- SCREEN 6: STICKER BOOK -->
+    <div id="stickersScreen" class="card hidden">
+      <div class="screen-header">
+        <button class="nav-btn" onclick="goToHome()">
+          <span>←</span> Back
+        </button>
+        <h3 style="font-family:'Baloo 2', cursive; font-size:1.5rem;">My Sticker Book</h3>
+        <span id="stickerCountBadge" style="font-weight:800; color:var(--primary);">0 / 15 Unlocked</span>
+      </div>
+      <p style="color:var(--text-muted); font-size:0.95rem;">Read stories and conquer daily quests to unlock cute companions!</p>
+      <div id="stickersGrid" class="sticker-grid"></div>
+    </div>
+
+    <!-- SCREEN 7: TEACHER VIEW -->
+    <div id="teacherScreen" class="card hidden">
+      <div class="screen-header">
+        <button class="nav-btn" onclick="goToHome()">
+          <span>←</span> Back
+        </button>
+        <h3 style="font-family:'Baloo 2', cursive; font-size:1.5rem;">Teacher & Parent View</h3>
+        <button class="nav-btn" onclick="exportSessionsCSV()" style="background:var(--success-bg); color:#047857; border-color:var(--success);">
+          <span>📥</span> Export CSV
+        </button>
+      </div>
+
+      <div style="display:flex; gap:14px; margin-top:8px; flex-wrap:wrap;">
+        <div class="stat-box">
+          <div id="teacherStreak" class="stat-val">🔥 0 d</div>
+          <div class="stat-label">Day Streak</div>
+        </div>
+        <div class="stat-box">
+          <div id="teacherAvgWcpm" class="stat-val">0</div>
+          <div class="stat-label">Avg WCPM</div>
+        </div>
+        <div class="stat-box">
+          <div id="teacherTotalSessions" class="stat-val">0</div>
+          <div class="stat-label">Total Sessions</div>
+        </div>
+        <div class="stat-box">
+          <div id="teacherTotalXp" class="stat-val">0</div>
+          <div class="stat-label">Total XP</div>
+        </div>
+      </div>
+
+      <h4 style="margin-top:20px; font-family:'Baloo 2', cursive; font-size:1.2rem;">WCPM Progress Over Time</h4>
+      <div class="chart-box">
+        <canvas id="wcpmChart"></canvas>
+      </div>
+
+      <h4 style="margin-top:10px; font-family:'Baloo 2', cursive; font-size:1.2rem;">Session History</h4>
+      <div class="teacher-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date & Time</th>
+              <th>Language</th>
+              <th>Story</th>
+              <th>WCPM</th>
+              <th>Accuracy</th>
+              <th>Tricky Words</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEVEL UP CELEBRATION MODAL -->
+  <div id="levelUpModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div style="font-size:2.2rem;">🌟 👑 🌟</div>
+      <h2 style="font-family:'Baloo 2', cursive; font-size:2.2rem; color:var(--primary); margin:6px 0;">LEVEL UP!</h2>
+      <div id="levelUpIcon" style="font-size:4rem; margin:6px 0;">🦉</div>
+      <h3 id="levelUpTitle" style="font-family:'Baloo 2', cursive; font-size:1.5rem; color:var(--secondary);">
+        You are now a Wise Owl!
+      </h3>
+      <p id="levelUpDesc" style="color:var(--text-muted); font-size:1rem; margin:8px 0 20px 0;">
+        Incredible reading progress! A new outfit has been unlocked in Bolo's Closet! 👗
+      </p>
+      <div style="display:flex; gap:12px; justify-content:center;">
+        <button class="action-btn btn-primary" onclick="closeLevelUpModal(true)">
+          <span>👗</span> Visit Bolo's Closet
+        </button>
+        <button class="action-btn btn-secondary" onclick="closeLevelUpModal(false)">
+          <span>✨</span> Keep Reading
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =====================================================================
+       1. STORIES DATABASE (English, Hindi, Marathi x Easy, Medium, Hard)
+       ===================================================================== */
+    const PASSAGES = {
+      'en-IN': {
+        'Easy': [
+          {
+            id: 'en_e1',
+            title: 'Miku The Monkey',
+            text: 'Miku the monkey lost his yellow banana. He looked high up in the green mango tree. A little bird found it and shared a bite with him.'
+          },
+          {
+            id: 'en_e2',
+            title: 'The Rainy Day Train',
+            text: 'The red toy train went chug chug on the track. Raindrops tapped softly on the shiny windows. The cat smiled as the whistle blew toot toot.'
+          },
+          {
+            id: 'en_e3',
+            title: 'Sunny The Puppy',
+            text: 'Sunny the puppy chased a round blue ball across the grass. He barked happily at a fluttering yellow butterfly.'
+          }
+        ],
+        'Medium': [
+          {
+            id: 'en_m1',
+            title: 'The Peacock Dance',
+            text: 'When the dark monsoon clouds rolled in, Raju the peacock spread his bright feathers. He danced in graceful circles near the river bank while the frogs sang.'
+          },
+          {
+            id: 'en_m2',
+            title: 'Grandma’s Magic Tea',
+            text: 'Aarav smelled warm ginger and fresh mint coming from the kitchen. Grandma handed him a tiny clay cup. It warmed his cold hands on a chilly winter morning.'
+          },
+          {
+            id: 'en_m3',
+            title: 'The Brave Little Auto',
+            text: 'Ramu drove his yellow and green auto rickshaw through the busy city bazaar. He zipped past colorful vegetable carts to bring an old grandfather home safely.'
+          }
+        ],
+        'Hard': [
+          {
+            id: 'en_h1',
+            title: 'The Stargazer of Jaipur',
+            text: 'Underneath the vast starry sky of Rajasthan, young Ananya peered through the giant brass telescope at the ancient observatory. She spotted Jupiter and its shimmering moons dancing silently through space.'
+          },
+          {
+            id: 'en_h2',
+            title: 'The Tiger cub of Kanha',
+            text: 'Deep within the tall bamboo forest, Sheru the curious tiger cub followed the scent of wildflowers. He paused by a sparkling stream and watched silvery fish darting among the smooth pebbles.'
+          },
+          {
+            id: 'en_h3',
+            title: 'The Floating Post Office',
+            text: 'On the calm waters of Dal Lake, wooden boats glided past floating gardens. Uncle Kabir carefully sorted letters inside the historic shikara post office while snow-capped mountains watched from above.'
+          }
+        ]
+      },
+      'hi-IN': {
+        'Easy': [
+          {
+            id: 'hi_e1',
+            title: 'नटखट बन्दर',
+            text: 'मीकू बन्दर का पीला केला खो गया। उसने आम के पेड़ पर ढूंढा। एक नन्हीं चिड़िया ने केला ढूंढकर उसे दिया।'
+          },
+          {
+            id: 'hi_e2',
+            title: 'बारिश और रेल',
+            text: 'लाल रेलगाड़ी छुक छुक करके चली। खिड़की पर बारिश की बूंदें टप टप गिरीं। बिल्ली ने देखा और खुशी से म्याऊं बोली।'
+          },
+          {
+            id: 'hi_e3',
+            title: 'सफ़ेद खरगोश',
+            text: 'चीकू खरगोश हरी घास में कूद रहा था। उसने एक मीठी गाजर खाई और खुशी से नाचने लगा।'
+          }
+        ],
+        'Medium': [
+          {
+            id: 'hi_m1',
+            title: 'मोर का सुंदर नाच',
+            text: 'आसमान में काले बादल छा गए। मोर ने अपने पंख फैलाए और खुशी से नाचने लगा। मेंढक भी बारिश में टर्र-टर्र गाने लगे।'
+          },
+          {
+            id: 'hi_m2',
+            title: 'दादी की मीठी खीर',
+            text: 'रसोई से इलायची और दूध की खुशबू आ रही थी। दादी ने गरमा-गरम खीर कटोरी में परोसी। राहुल ने चम्मच उठाकर स्वाद से खाया।'
+          },
+          {
+            id: 'hi_m3',
+            title: 'रंग-बिरंगी तितली',
+            text: 'बगीचे में एक सुनहरी तितली उड़ रही थी। वह गुलाब के लाल फूल पर बैठी और उसने मीठा रस पिया।'
+          }
+        ],
+        'Hard': [
+          {
+            id: 'hi_h1',
+            title: 'जंगल का सच्चा मित्र',
+            text: 'घने जंगल में एक बूढ़ा बरगद का पेड़ था। उस पर सैकड़ों पंछी घोंसले बनाकर रहते थे। जब भी आंधी-तूफान आता, वह पेड़ सभी जीवों को अपनी छाया में सुरक्षित रखता।'
+          },
+          {
+            id: 'hi_h2',
+            title: 'चांदनी रात की सैर',
+            text: 'पहाड़ों के ऊपर पूर्णिमा का गोल चांद चमक रहा था। ठंडी हवा में पाइन के पेड़ों की खुशबू तैर रही थी। नदी का पानी चांदी की तरह चमक रहा था।'
+          },
+          {
+            id: 'hi_h3',
+            title: 'समुद्र तट का कछुआ',
+            text: 'रेत पर नन्हा कछुआ धीरे-धीरे समुद्र की ओर बढ़ रहा था। नीली लहरें किनारे आकर उसे पुकार रही थीं। उसने साहस किया और पानी में तैरने लगा।'
+          }
+        ]
+      },
+      'mr-IN': {
+        'Easy': [
+          {
+            id: 'mr_e1',
+            title: 'गोड आंबा',
+            text: 'झाडावर एक पिवळा गोड आंबा होता. छोट्या चिमणीने त्याला चोच मारली. आंबा खूप गोड आणि रसाळ होता.'
+          },
+          {
+            id: 'mr_e2',
+            title: 'पावसाची गम्मत',
+            text: 'छम छम पाऊस पडत होता. रोहनने कागदाची छान नाव पाण्यात सोडली. नाव वेगाने तरंगत गेली.'
+          },
+          {
+            id: 'mr_e3',
+            title: 'मांजराचे पिल्लू',
+            text: 'मिनीचे पांढरे पिल्लू चेंडूशी खेळत होते. ते म्याव म्याव करत इकडे तिकडे धावले.'
+          }
+        ],
+        'Medium': [
+          {
+            id: 'mr_m1',
+            title: 'सुंदर मोर',
+            text: 'काळे ढग पाहून मोराने सुंदर पिसारा फुलवला. तो आनंदाने थुईथुई नाचू लागला. शेतातले शेतकरी आनंदून गेले.'
+          },
+          {
+            id: 'mr_m2',
+            title: 'आजीची गोष्ट',
+            text: 'रात्रीच्या वेळी आजीने मुलांना राजाची गोष्ट सांगितली. गोष्ट ऐकता ऐकता छोटी सायली छान झोपी गेली.'
+          },
+          {
+            id: 'mr_m3',
+            title: 'फुलपाखराचा प्रवास',
+            text: 'रंगबेरंगी फुलपाखरू जास्वंदीच्या फुलावर बसले. त्याने गोड मध चाखला आणि आकाशात उंच भरारी घेतली.'
+          }
+        ],
+        'Hard': [
+          {
+            id: 'mr_h1',
+            title: 'सह्याद्रीचा किल्ला',
+            text: 'हिरव्यागार सह्याद्रीच्या डोंगररांगांमध्ये एक जुना किल्ला डौलाने उभा होता. थंड वाऱ्याची झुळूक अंगावर रोमांच उभे करत होती. दरीतून वाहणाऱ्या झऱ्याचा आवाज शांतता भंग करत होता.'
+          },
+          {
+            id: 'mr_h2',
+            title: 'सागराची लाट',
+            text: 'कोकणच्या सोनेरी वाळूवर लाटा खेळत होत्या. नारळाची उंच झाडे वाऱ्याच्या तालावर डोलत होती. मच्छीमार आपल्या होड्या घेऊन घरी परतत होते.'
+          },
+          {
+            id: 'mr_h3',
+            title: 'जंगलातील पाहुणा',
+            text: 'ताडोबाच्या अभयारण्यात वाघाची डरकाळी घुमली. हरणांचा कळप कान टवकारून सावध झाला. जंगलातील निसर्गाचे रूप विस्मयकारक दिसत होते.'
+          }
+        ]
+      }
+    };
+
+    /* =====================================================================
+       2. DAILY CHALLENGES CATALOG
+       ===================================================================== */
+    const DAILY_QUESTS = {
+      'en-IN': [
+        { id: 'daily_en_1', title: 'The Whispering Windmill', text: 'High upon the grassy hill, a friendly windmill turned gently in the breeze. Birds nested safely under its wooden beams and sang happy songs.' },
+        { id: 'daily_en_2', title: 'The Silver Moon Boat', text: 'Ananya dreamed of a boat carved from pure silver. It sailed across clouds of lavender and sprinkled sleepy golden dust upon the rooftops.' },
+        { id: 'daily_en_3', title: 'The Baker’s Magic Loaf', text: 'The aroma of warm honey and cinnamon drifted through the morning alley. Master Mohan pulled a glowing golden loaf from the woodfire oven.' }
+      ],
+      'hi-IN': [
+        { id: 'daily_hi_1', title: 'जादुई दिया', text: 'रोहन को मिट्टी का एक सुंदर दिया मिला। जैसे ही उसने दिया जलाया, कमरे में सुनहरी रोशनी और मीठी खुशबू फैल गई।' },
+        { id: 'daily_hi_2', title: 'पहाड़ का सच्चा दोस्त', text: 'ऊंचे पहाड़ से एक शीतल झरना नीचे घाटी में बह रहा था। पंछी किनारे आकर पानी पीते और खुशी से चहकते थे।' }
+      ],
+      'mr-IN': [
+        { id: 'daily_mr_1', title: 'चांदण्याचा उत्सव', text: 'रात्रीच्या आकाशात हजारो चांदण्या लुकलुकत होत्या. आजीने सायलीला आकाशातील ताऱ्यांची सुंदर गोष्ट ऐकवली.' },
+        { id: 'daily_mr_2', title: 'हिरवेगार रान', text: 'डोंगरावरून थंडगार झरा खळाळत वाहत होता. गवतावर दवबिंदू मोत्यांसारखे चमकत होते.' }
+      ]
+    };
+
+    /* =====================================================================
+       3. XP, LEVELS & UNLOCKABLE OUTIFTS
+       ===================================================================== */
+    const LEVELS = [
+      { level: 1, name: "Egg Hatchling", icon: "🥚", minXp: 0, outfitId: "classic" },
+      { level: 2, name: "Baby Owl", icon: "🐣", minXp: 100, outfitId: "scholar" },
+      { level: 3, name: "Curious Fledgling", icon: "🌿", minXp: 250, outfitId: "royal" },
+      { level: 4, name: "Forest Explorer", icon: "🌲", minXp: 500, outfitId: "wizard" },
+      { level: 5, name: "Star Reader", icon: "⭐", minXp: 1000, outfitId: "hero" },
+      { level: 6, name: "Wise Owl", icon: "🦉", minXp: 2000, outfitId: "astronaut" }
+    ];
+
+    const OUTFITS = [
+      { id: 'classic', name: 'Classic Purple', icon: '🦉', desc: 'Bolo’s beloved original fluffy feathers.', reqLevel: 1 },
+      { id: 'scholar', name: 'Scholar Owl', icon: '🎓', desc: 'Graduation cap and wise reading spectacles.', reqLevel: 2 },
+      { id: 'royal', name: 'Royal Monarch', icon: '👑', desc: 'Golden crown with shining royal sapphire & gem.', reqLevel: 3 },
+      { id: 'wizard', name: 'Magic Wizard', icon: '🧙', desc: 'Pointy starry hat and glowing wand with stars.', reqLevel: 4 },
+      { id: 'hero', name: 'Superhero Bolo', icon: '🦸', desc: 'Domino eye mask and vibrant flying red cape.', reqLevel: 5 },
+      { id: 'astronaut', name: 'Cosmic Astronaut', icon: '🚀', desc: 'Glass bubble space helmet for star journeys.', reqLevel: 6 }
+    ];
+
+    /* =====================================================================
+       4. STICKERS CATALOG
+       ===================================================================== */
+    const ALL_STICKERS = [
+      { id: 'st_owl', name: 'Bolo the Owl', icon: '🦉' },
+      { id: 'st_monkey', name: 'Miku Monkey', icon: '🐒' },
+      { id: 'st_peacock', name: 'Royal Peacock', icon: '🦚' },
+      { id: 'st_tiger', name: 'Kanha Tiger', icon: '🐯' },
+      { id: 'st_puppy', name: 'Sunny Puppy', icon: '🐶' },
+      { id: 'st_cat', name: 'Whisker Cat', icon: '🐱' },
+      { id: 'st_elephant', name: 'Gajraj Elephant', icon: '🐘' },
+      { id: 'st_butterfly', name: 'Flutter Wings', icon: '🦋' },
+      { id: 'st_rabbit', name: 'Chiku Bunny', icon: '🐰' },
+      { id: 'st_turtle', name: 'Ocean Turtle', icon: '🐢' },
+      { id: 'st_frog', name: 'Rain Frog', icon: '🐸' },
+      { id: 'st_dolphin', name: 'Dal Dolphin', icon: '🐬' },
+      // Exclusive Daily Quest Gold Stickers
+      { id: 'st_gold_owl', name: 'Golden Wise Owl', icon: '✨🦉' },
+      { id: 'st_sun_lion', name: 'Sun King Lion', icon: '🦁👑' },
+      { id: 'st_cosmic_dragon', name: 'Star Dragon', icon: '🐲🌟' }
+    ];
+
+    /* =====================================================================
+       5. APPLICATION STATE
+       ===================================================================== */
+    let currentLanguage = 'en-IN';
+    let currentLevel = 'Easy';
+    let currentPassage = null;
+    let isDailyQuest = false;
+    let magicHighlightEnabled = true;
+
+    // Reading session state
+    let recognition = null;
+    let sessionActive = false;
+    let readingStartTime = null;
+    let timerInterval = null;
+    let elapsedSeconds = 0;
+
+    let passageWordsList = [];
+    let wordElements = [];
+    let wordStates = []; // 'pending' | 'correct' | 'different' | 'skipped'
+    let currentWordIndex = 0;
+    let trickyWords = [];
+
+    // Slow-Motion Audio Recording State
+    let audioStream = null;
+    let mediaRecorder = null;
+    let recordedAudioChunks = [];
+    let recordedAudioBlobUrl = null;
+    let bulbulReplayRate = 0.8;
+
+    // Gamification & Accessibility State
+    let userXp = 0;
+    let equippedOutfit = 'classic';
+    let currentTheme = 'light';
+    let currentFontSize = '1.7';
+    let currentFontFamily = "'Baloo 2', cursive, sans-serif";
+    let currentSpacing = 'normal';
+
+    /* =====================================================================
+       6. AUDIO & SOUND EFFECTS (Web Audio API)
+       ===================================================================== */
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playChime() {
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const now = audioCtx.currentTime;
+        [523.25, 659.25, 783.99].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+          gain.gain.setValueAtTime(0.12, now + idx * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.35);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.05);
+          osc.stop(now + idx * 0.05 + 0.35);
+        });
+      } catch (e) { console.warn(e); }
+    }
+
+    function playBoop() {
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.2);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      } catch (e) { console.warn(e); }
+    }
+
+    function playFanfare() {
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const notes = [
+          { f: 392, d: 0.15, t: 0 },
+          { f: 523.25, d: 0.15, t: 0.15 },
+          { f: 659.25, d: 0.18, t: 0.3 },
+          { f: 783.99, d: 0.45, t: 0.48 }
+        ];
+        const now = audioCtx.currentTime;
+        notes.forEach(n => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(n.f, now + n.t);
+          gain.gain.setValueAtTime(0.2, now + n.t);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + n.t);
+          osc.stop(now + n.t + n.d);
+        });
+      } catch (e) { console.warn(e); }
+    }
+
+    /* =====================================================================
+       7. SPEECH SYNTHESIS ENGINE (Modular for Sarvam Bulbul API)
+       ===================================================================== */
+    function speak(text, lang = currentLanguage, rate = 0.8) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = lang;
+      utterance.rate = rate;
+
+      const voices = window.speechSynthesis.getVoices();
+      const matchingVoice = voices.find(v => v.lang.toLowerCase() === lang.toLowerCase()) ||
+                            voices.find(v => v.lang.startsWith(lang.split('-')[0]));
+      if (matchingVoice) utterance.voice = matchingVoice;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    /* =====================================================================
+       8. ALIGNMENT & SCORING ALGORITHM (Modular for Sarvam Saaras API)
+       ===================================================================== */
+    function levenshtein(a, b) {
+      const matrix = [];
+      for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+      for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          if (b.charAt(i - 1) === a.charAt(j - 1)) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j - 1] + 1,
+              matrix[i][j - 1] + 1,
+              matrix[i - 1][j] + 1
+            );
+          }
+        }
+      }
+      return matrix[b.length][a.length];
+    }
+
+    function cleanWord(str) {
+      if (!str) return '';
+      return str.toLowerCase().replace(/[\.,!\?;:"'\(\)\[\]।॥\-—]/g, '').trim();
+    }
+
+    function isFuzzyMatch(passageWord, spokenWord) {
+      const p = cleanWord(passageWord);
+      const s = cleanWord(spokenWord);
+      if (p === s) return true;
+      if (!p || !s) return false;
+      const maxDist = p.length <= 4 ? 1 : 2;
+      return levenshtein(p, s) <= maxDist;
+    }
+
+    function alignWords(passageWords, spokenWords) {
+      if (!spokenWords || spokenWords.length === 0) return null;
+      const latestSpoken = spokenWords[spokenWords.length - 1];
+      const targetWord = passageWords[currentWordIndex];
+
+      if (!targetWord) return null;
+
+      // 1. Direct match
+      if (isFuzzyMatch(targetWord, latestSpoken)) {
+        return { action: 'correct', index: currentWordIndex };
+      }
+
+      // 2. Lookahead 1-2 words (child skipped ahead)
+      for (let lookahead = 1; lookahead <= 2; lookahead++) {
+        const nextIdx = currentWordIndex + lookahead;
+        if (nextIdx < passageWords.length && isFuzzyMatch(passageWords[nextIdx], latestSpoken)) {
+          return { action: 'jump', targetIndex: nextIdx };
+        }
+      }
+
+      // 3. Mispronunciation / Substitution
+      return { action: 'different', index: currentWordIndex, spoken: latestSpoken };
+    }
+
+    /* =====================================================================
+       9. SPEECH RECOGNITION & MEDIA RECORDER FOR SLOW-MO REPLAY
+       ===================================================================== */
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    function initSpeechRecognition() {
+      if (!SpeechRecognition) {
+        document.getElementById('unsupportedAlert').classList.remove('hidden');
+        return null;
+      }
+
+      const rec = new SpeechRecognition();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = currentLanguage;
+
+      rec.onstart = () => {
+        setMascotState('listening', "Listening carefully... Read aloud! 🌟");
+      };
+
+      rec.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTokens = [];
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const text = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTokens.push(...text.trim().split(/\s+/));
+          } else {
+            interimTranscript += text;
+          }
+        }
+
+        if (!readingStartTime && (finalTokens.length > 0 || interimTranscript.trim().length > 0)) {
+          startTimer();
+        }
+
+        if (interimTranscript) {
+          document.getElementById('interimText').textContent = `Buddy heard: "${interimTranscript}"`;
+        }
+
+        if (finalTokens.length > 0) {
+          handleSpokenTokens(finalTokens);
+        }
+      };
+
+      rec.onerror = (event) => {
+        console.warn('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          alert('Microphone access was denied. Please allow microphone permissions in your browser.');
+          stopReadingSession();
+        }
+      };
+
+      rec.onend = () => {
+        if (sessionActive) {
+          try { rec.start(); } catch (e) {}
+        }
+      };
+
+      return rec;
+    }
+
+    async function startAudioRecording() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+      try {
+        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recordedAudioChunks = [];
+        mediaRecorder = new MediaRecorder(audioStream);
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) recordedAudioChunks.push(e.data);
+        };
+        mediaRecorder.onstop = () => {
+          if (recordedAudioChunks.length > 0) {
+            const blob = new Blob(recordedAudioChunks, { type: 'audio/webm' });
+            recordedAudioBlobUrl = URL.createObjectURL(blob);
+            const player = document.getElementById('userAudioPlayer');
+            if (player) {
+              player.src = recordedAudioBlobUrl;
+              player.load();
+            }
+          }
+        };
+        mediaRecorder.start();
+      } catch (err) {
+        console.warn('MediaRecorder init warning:', err);
+      }
+    }
+
+    function stopAudioRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try { mediaRecorder.stop(); } catch(e) {}
+      }
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+        audioStream = null;
+      }
+    }
+
+    function handleSpokenTokens(tokens) {
+      tokens.forEach(token => {
+        if (currentWordIndex >= passageWordsList.length) return;
+
+        const alignment = alignWords(passageWordsList, [token]);
+        if (!alignment) return;
+
+        if (alignment.action === 'correct') {
+          markWord(currentWordIndex, 'correct');
+          playChime();
+          currentWordIndex++;
+        } else if (alignment.action === 'jump') {
+          for (let i = currentWordIndex; i < alignment.targetIndex; i++) {
+            markWord(i, 'skipped');
+            trickyWords.push(passageWordsList[i]);
+          }
+          markWord(alignment.targetIndex, 'correct');
+          playChime();
+          currentWordIndex = alignment.targetIndex + 1;
+        } else if (alignment.action === 'different') {
+          markWord(currentWordIndex, 'different');
+          trickyWords.push(passageWordsList[currentWordIndex]);
+          playBoop();
+          currentWordIndex++;
+        }
+
+        updateCurrentWordHighlight();
+
+        if (currentWordIndex >= passageWordsList.length) {
+          setTimeout(() => { finishReadingSession(); }, 600);
+        }
+      });
+    }
+
+    function markWord(index, state) {
+      if (index >= wordElements.length) return;
+      wordStates[index] = state;
+      const el = wordElements[index];
+      el.classList.remove('correct', 'different', 'skipped', 'current');
+      el.classList.add(state);
+    }
+
+    function updateCurrentWordHighlight() {
+      wordElements.forEach((el, idx) => {
+        el.classList.remove('current');
+        if (idx === currentWordIndex) {
+          el.classList.add('current');
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      });
+    }
+
+    /* =====================================================================
+       10. READING SESSION LIFECYCLE
+       ===================================================================== */
+    function toggleReadingSession() {
+      if (sessionActive) {
+        finishReadingSession();
+      } else {
+        startReadingSession();
+      }
+    }
+
+    function startReadingSession() {
+      if (!recognition) recognition = initSpeechRecognition();
+      if (!recognition) return;
+
+      sessionActive = true;
+      currentWordIndex = 0;
+      trickyWords = [];
+      wordStates = passageWordsList.map(() => 'pending');
+
+      wordElements.forEach(el => { el.className = 'word'; });
+      updateCurrentWordHighlight();
+
+      document.getElementById('micBtn').classList.add('active');
+      document.getElementById('micLabel').textContent = 'Finish Reading';
+      document.getElementById('interimText').textContent = 'Listening... Start speaking whenever you are ready!';
+
+      // Start recording child's audio for slow-mo replay
+      startAudioRecording();
+
+      try {
+        recognition.lang = currentLanguage;
+        recognition.start();
+      } catch (e) {
+        console.warn('Recognition start warning:', e);
+      }
+    }
+
+    function stopReadingSession() {
+      sessionActive = false;
+      stopTimer();
+      stopAudioRecording();
+      if (recognition) {
+        try { recognition.stop(); } catch (e) {}
+      }
+      document.getElementById('micBtn').classList.remove('active');
+      document.getElementById('micLabel').textContent = 'Start Reading';
+    }
+
+    function finishReadingSession() {
+      stopReadingSession();
+
+      // Mark remaining words as skipped
+      for (let i = currentWordIndex; i < passageWordsList.length; i++) {
+        if (wordStates[i] === 'pending') {
+          markWord(i, 'skipped');
+          trickyWords.push(passageWordsList[i]);
+        }
+      }
+
+      // Compute metrics
+      const totalWords = passageWordsList.length;
+      const correctWords = wordStates.filter(s => s === 'correct').length;
+      const accuracy = totalWords > 0 ? Math.round((correctWords / totalWords) * 100) : 0;
+      const minutes = Math.max(elapsedSeconds / 60, 0.1);
+      const wcpm = Math.round(correctWords / minutes);
+
+      // Star rating
+      let stars = '⭐';
+      if (accuracy >= 85) stars = '⭐⭐⭐';
+      else if (accuracy >= 60) stars = '⭐⭐';
+
+      // XP Calculation:
+      // +5 XP per correct word, +50 XP accuracy >= 85% (+100 XP for 100%), +100 XP daily quest bonus!
+      let earnedXp = correctWords * 5;
+      if (accuracy >= 85) earnedXp += 50;
+      if (accuracy === 100) earnedXp += 50;
+      if (isDailyQuest) earnedXp += 100;
+
+      const prevLevel = getCurrentLevelObj(userXp);
+      userXp += earnedXp;
+      saveUserXp(userXp);
+      updateXpDisplay();
+      const newLevel = getCurrentLevelObj(userXp);
+
+      // Mascot emotion & Celebration
+      if (accuracy >= 85) {
+        setMascotState('happy', "Woohoo! Superfluous reading! 🌟🎉");
+        triggerConfetti();
+        playFanfare();
+      } else {
+        setMascotState('encouraging', "Almost! Let's practice those tricky words together! 🦉");
+      }
+
+      // Save Session History
+      saveSessionData({
+        date: new Date().toISOString(),
+        passageId: currentPassage.id,
+        passageTitle: currentPassage.title,
+        lang: currentLanguage,
+        level: currentPassage.isCustom ? 'Custom' : currentLevel,
+        wcpm: wcpm,
+        accuracy: accuracy,
+        seconds: elapsedSeconds,
+        trickyWords: [...new Set(trickyWords)]
+      });
+
+      // Daily Quest completion
+      if (isDailyQuest) {
+        markDailyQuestCompleted();
+      }
+
+      // Award sticker
+      const earnedSticker = awardRandomSticker();
+
+      // Render Results
+      document.getElementById('starsBanner').textContent = stars;
+      document.getElementById('resWcpm').textContent = wcpm;
+      document.getElementById('resAccuracy').textContent = `${accuracy}%`;
+      document.getElementById('resTime').textContent = `${elapsedSeconds}s`;
+      document.getElementById('xpEarnedPill').textContent = `+${earnedXp} XP Earned! 🌟`;
+
+      const uniqueTricky = [...new Set(trickyWords)];
+      document.getElementById('trickyCount').textContent = uniqueTricky.length;
+      const trickyListEl = document.getElementById('trickyWordsList');
+      trickyListEl.innerHTML = '';
+
+      if (uniqueTricky.length === 0) {
+        trickyListEl.innerHTML = '<span style="color:#059669; font-weight:700;">No tricky words! Flawless reading! 🌟</span>';
+        document.getElementById('drillBtn').classList.add('hidden');
+      } else {
+        document.getElementById('drillBtn').classList.remove('hidden');
+        uniqueTricky.forEach(w => {
+          const pill = document.createElement('div');
+          pill.className = 'tricky-word-item';
+          pill.innerHTML = `
+            <span>${w}</span>
+            <button class="tricky-word-btn" title="Listen slowly" onclick="speak('${w}', '${currentLanguage}', 0.6)">🔊</button>
+          `;
+          trickyListEl.appendChild(pill);
+        });
+      }
+
+      // Check for Level-Up!
+      if (newLevel.level > prevLevel.level) {
+        setTimeout(() => {
+          triggerLevelUpCelebration(newLevel);
+        }, 800);
+      }
+
+      showScreen('resultsScreen');
+    }
+
+    /* =====================================================================
+       11. SLOW-MOTION REPLAY & VOICE COMPARE CONTROLS
+       ===================================================================== */
+    function setUserAudioSpeed(speed) {
+      const player = document.getElementById('userAudioPlayer');
+      if (player) player.playbackRate = speed;
+      document.querySelectorAll('#userSpeedPills .speed-pill').forEach(btn => {
+        btn.classList.toggle('active', parseFloat(btn.getAttribute('data-speed')) === speed);
+      });
+    }
+
+    function setBulbulReplayRate(rate) {
+      bulbulReplayRate = rate;
+      document.querySelectorAll('#bulbulSpeedPills .speed-pill').forEach(btn => {
+        btn.classList.toggle('active', parseFloat(btn.getAttribute('data-rate')) === rate);
+      });
+    }
+
+    function toggleBulbulReplay() {
+      if (!currentPassage) return;
+      speak(currentPassage.text, currentLanguage, bulbulReplayRate);
+    }
+
+    /* =====================================================================
+       12. UPLOAD / PASTE YOUR OWN TEXT
+       ===================================================================== */
+    function toggleCustomStoryForm() {
+      const form = document.getElementById('customStoryForm');
+      const chevron = document.getElementById('customStoryChevron');
+      const isHidden = form.classList.contains('hidden');
+      if (isHidden) {
+        form.classList.remove('hidden');
+        chevron.textContent = '▲ Close Form';
+      } else {
+        form.classList.add('hidden');
+        chevron.textContent = '+ Click to Paste';
+      }
+    }
+
+    function loadPresetStory(presetKey) {
+      const presets = {
+        'space': {
+          title: 'The Starlight Kitten',
+          lang: 'en-IN',
+          text: 'Cosmo the kitten floated inside the shiny spaceship. He tapped a glowing purple button and caught a floating space biscuit in his tiny paws.'
+        },
+        'hindi_birbal': {
+          title: 'बीरबल की चतुराई',
+          lang: 'hi-IN',
+          text: 'बादशाह अकबर ने बीरबल से एक कठिन सवाल पूछा। बीरबल ने मुस्कुराते हुए ऐसा मीठा जवाब दिया कि पूरा दरबार हंसने लगा।'
+        },
+        'marathi_shetkari': {
+          title: 'जादूचा पक्षी',
+          lang: 'mr-IN',
+          text: 'हिरव्यागार शेतात एका शेतकऱ्याला सुंदर सोनेरी पंखांचा पक्षी दिसला. त्या पक्षाने गोड गाणे गाऊन संपूर्ण शेत बहरून टाकले.'
+        }
+      };
+
+      const p = presets[presetKey];
+      if (!p) return;
+      document.getElementById('customTitleInput').value = p.title;
+      document.getElementById('customLangSelect').value = p.lang;
+      document.getElementById('customTextInput').value = p.text;
+    }
+
+    function launchCustomStory() {
+      const title = document.getElementById('customTitleInput').value.trim() || 'My Custom Story';
+      const lang = document.getElementById('customLangSelect').value;
+      const text = document.getElementById('customTextInput').value.trim();
+
+      if (!text || text.split(/\s+/).length < 2) {
+        alert('Please paste at least a couple of sentences to practice reading!');
+        return;
+      }
+
+      currentLanguage = lang;
+      isDailyQuest = false;
+
+      const customPassage = {
+        id: 'custom_' + Date.now(),
+        title: title,
+        text: text,
+        isCustom: true
+      };
+
+      selectPassage(customPassage);
+    }
+
+    /* =====================================================================
+       13. DAILY CHALLENGE LOGIC
+       ===================================================================== */
+    function getTodayKey() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function isDailyQuestCompletedToday() {
+      return localStorage.getItem('bolo_daily_done_' + getTodayKey()) === 'true';
+    }
+
+    function markDailyQuestCompleted() {
+      localStorage.setItem('bolo_daily_done_' + getTodayKey(), 'true');
+      awardRandomSticker(true); // Award gold sticker
+      updateDailyChallengeBanner();
+    }
+
+    function getTodayChallengeStory() {
+      const list = DAILY_QUESTS[currentLanguage] || DAILY_QUESTS['en-IN'];
+      // Deterministic index from date string
+      const dateStr = getTodayKey();
+      let hash = 0;
+      for (let i = 0; i < dateStr.length; i++) {
+        hash = (hash << 5) - hash + dateStr.charCodeAt(i);
+        hash |= 0;
+      }
+      const idx = Math.abs(hash) % list.length;
+      return list[idx];
+    }
+
+    function updateDailyChallengeBanner() {
+      const story = getTodayChallengeStory();
+      document.getElementById('dailyStoryTitle').textContent = story.title;
+      document.getElementById('dailyStoryPreview').textContent = story.text;
+
+      const isDone = isDailyQuestCompletedToday();
+      const badge = document.getElementById('dailyStatusBadge');
+      const btn = document.getElementById('dailyStartBtn');
+
+      if (isDone) {
+        badge.textContent = '✅ Completed Today!';
+        badge.style.background = '#ECFDF5';
+        badge.style.color = '#047857';
+        btn.textContent = '🔄 Replay Daily Quest';
+      } else {
+        badge.textContent = 'Ready! 🔥 (+100 XP)';
+        badge.style.background = '#FEF3C7';
+        badge.style.color = '#92400E';
+        btn.innerHTML = '<span>⚡ Read Daily Quest</span>';
+      }
+    }
+
+    function startDailyChallenge() {
+      isDailyQuest = true;
+      const story = getTodayChallengeStory();
+      selectPassage(story);
+    }
+
+    /* =====================================================================
+       14. XP & LEVEL-UP CELEBRATION
+       ===================================================================== */
+    function getUserXp() {
+      return parseInt(localStorage.getItem('bolo_buddy_xp') || '100', 10);
+    }
+
+    function saveUserXp(xp) {
+      localStorage.setItem('bolo_buddy_xp', xp.toString());
+    }
+
+    function getCurrentLevelObj(xp) {
+      let current = LEVELS[0];
+      for (let i = 0; i < LEVELS.length; i++) {
+        if (xp >= LEVELS[i].minXp) current = LEVELS[i];
+      }
+      return current;
+    }
+
+    function getNextLevelObj(xp) {
+      for (let i = 0; i < LEVELS.length; i++) {
+        if (xp < LEVELS[i].minXp) return LEVELS[i];
+      }
+      return null;
+    }
+
+    function updateXpDisplay() {
+      const xp = getUserXp();
+      const curLvl = getCurrentLevelObj(xp);
+      const nxtLvl = getNextLevelObj(xp);
+
+      document.getElementById('navLevelIcon').textContent = curLvl.icon;
+      document.getElementById('navLevelName').textContent = curLvl.name;
+      document.getElementById('navXpText').textContent = `${xp} XP`;
+      document.getElementById('closetLevelBadge').textContent = `Lvl ${curLvl.level}: ${curLvl.name}`;
+
+      if (nxtLvl) {
+        const span = nxtLvl.minXp - curLvl.minXp;
+        const progress = Math.min(Math.max((xp - curLvl.minXp) / span, 0), 1);
+        document.getElementById('navXpFill').style.width = `${Math.round(progress * 100)}%`;
+      } else {
+        document.getElementById('navXpFill').style.width = '100%';
+      }
+    }
+
+    function triggerLevelUpCelebration(levelObj) {
+      playFanfare();
+      triggerConfetti();
+
+      document.getElementById('levelUpIcon').textContent = levelObj.icon;
+      document.getElementById('levelUpTitle').textContent = `You are now a ${levelObj.name}! 🌟`;
+      document.getElementById('levelUpDesc').textContent = `Incredible dedication! A new outfit has unlocked in Bolo's Closet!`;
+      document.getElementById('levelUpModal').classList.remove('hidden');
+    }
+
+    function closeLevelUpModal(goToCloset) {
+      document.getElementById('levelUpModal').classList.add('hidden');
+      if (goToCloset) showScreen('outfitsScreen');
+    }
+
+    /* =====================================================================
+       15. BOLO'S CLOSET & OUTFIT EQUIPPING
+       ===================================================================== */
+    function getEquippedOutfit() {
+      return localStorage.getItem('bolo_equipped_outfit') || 'classic';
+    }
+
+    function equipOutfit(outfitId) {
+      const curLvl = getCurrentLevelObj(userXp);
+      const outfit = OUTFITS.find(o => o.id === outfitId);
+      if (!outfit || curLvl.level < outfit.reqLevel) return;
+
+      equippedOutfit = outfitId;
+      localStorage.setItem('bolo_equipped_outfit', outfitId);
+      applyOutfitToSvg(outfitId);
+      renderOutfitsGrid();
+      setMascotState('happy', `Bolo loves the ${outfit.name}! 👗✨`);
+    }
+
+    function applyOutfitToSvg(outfitId) {
+      const layers = ['outfitScholar', 'outfitRoyal', 'outfitWizard', 'outfitHero', 'outfitAstronaut'];
+      layers.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+
+      if (outfitId === 'scholar') document.getElementById('outfitScholar')?.classList.remove('hidden');
+      else if (outfitId === 'royal') document.getElementById('outfitRoyal')?.classList.remove('hidden');
+      else if (outfitId === 'wizard') document.getElementById('outfitWizard')?.classList.remove('hidden');
+      else if (outfitId === 'hero') document.getElementById('outfitHero')?.classList.remove('hidden');
+      else if (outfitId === 'astronaut') document.getElementById('outfitAstronaut')?.classList.remove('hidden');
+    }
+
+    function renderOutfitsGrid() {
+      const grid = document.getElementById('outfitsGrid');
+      grid.innerHTML = '';
+      const curLvl = getCurrentLevelObj(userXp);
+
+      OUTFITS.forEach(outfit => {
+        const isUnlocked = curLvl.level >= outfit.reqLevel;
+        const isEquipped = equippedOutfit === outfit.id;
+
+        const card = document.createElement('div');
+        card.className = `outfit-card ${isUnlocked ? 'unlocked' : 'locked'} ${isEquipped ? 'active-equipped' : ''}`;
+        card.innerHTML = `
+          <div class="outfit-preview-icon">${outfit.icon}</div>
+          <div class="outfit-name">${outfit.name}</div>
+          <div class="outfit-desc">${outfit.desc}</div>
+          <div style="font-size:0.75rem; font-weight:800; margin-top:6px; color:${isEquipped ? '#059669' : (isUnlocked ? 'var(--secondary)' : 'var(--text-muted)')};">
+            ${isEquipped ? '✅ Equipped' : (isUnlocked ? 'Tap to Wear' : `🔒 Unlocks at Level ${outfit.reqLevel}`)}
+          </div>
+        `;
+
+        if (isUnlocked) {
+          card.onclick = () => equipOutfit(outfit.id);
+        }
+        grid.appendChild(card);
+      });
+    }
+
+    /* =====================================================================
+       16. ACCESSIBILITY, DARK MODE & FONT SIZE CONTROLLER
+       ===================================================================== */
+    function toggleA11yDrawer() {
+      const drawer = document.getElementById('a11yDrawer');
+      drawer.classList.toggle('hidden');
+    }
+
+    function setTheme(theme) {
+      currentTheme = theme;
+      localStorage.setItem('bolo_theme', theme);
+      if (theme === 'dark') {
+        document.body.classList.add('dark-theme');
+        document.getElementById('themeLightBtn').classList.remove('active');
+        document.getElementById('themeDarkBtn').classList.add('active');
+      } else {
+        document.body.classList.remove('dark-theme');
+        document.getElementById('themeLightBtn').classList.add('active');
+        document.getElementById('themeDarkBtn').classList.remove('active');
+      }
+    }
+
+    function setFontSize(val) {
+      currentFontSize = val;
+      localStorage.setItem('bolo_font_size', val);
+      document.documentElement.style.setProperty('--passage-font-size', `${val}rem`);
+      document.getElementById('fontSizeValLabel').textContent = `${val}rem`;
+    }
+
+    function setFontFamily(font) {
+      currentFontFamily = font;
+      localStorage.setItem('bolo_font_family', font);
+      document.documentElement.style.setProperty('--passage-font-family', font);
+    }
+
+    function setSpacing(spacing) {
+      currentSpacing = spacing;
+      localStorage.setItem('bolo_spacing', spacing);
+      if (spacing === 'wide') {
+        document.documentElement.style.setProperty('--passage-letter-spacing', '0.08em');
+        document.documentElement.style.setProperty('--passage-word-spacing', '0.18em');
+        document.documentElement.style.setProperty('--passage-line-height', '2.2');
+        document.getElementById('spacingNormalBtn').classList.remove('active');
+        document.getElementById('spacingWideBtn').classList.add('active');
+      } else {
+        document.documentElement.style.setProperty('--passage-letter-spacing', '0.02em');
+        document.documentElement.style.setProperty('--passage-word-spacing', 'normal');
+        document.documentElement.style.setProperty('--passage-line-height', '1.8');
+        document.getElementById('spacingNormalBtn').classList.add('active');
+        document.getElementById('spacingWideBtn').classList.remove('active');
+      }
+    }
+
+    function loadA11ySettings() {
+      const savedTheme = localStorage.getItem('bolo_theme') || 'light';
+      setTheme(savedTheme);
+
+      const savedSize = localStorage.getItem('bolo_font_size') || '1.7';
+      document.getElementById('fontSizeSlider').value = savedSize;
+      setFontSize(savedSize);
+
+      const savedFont = localStorage.getItem('bolo_font_family') || "'Baloo 2', cursive, sans-serif";
+      document.getElementById('fontFamilySelect').value = savedFont;
+      setFontFamily(savedFont);
+
+      const savedSpacing = localStorage.getItem('bolo_spacing') || 'normal';
+      setSpacing(savedSpacing);
+    }
+
+    /* =====================================================================
+       17. TIMER & DRILL LOGIC
+       ===================================================================== */
+    function startTimer() {
+      if (timerInterval) return;
+      readingStartTime = Date.now();
+      timerInterval = setInterval(() => {
+        elapsedSeconds = Math.floor((Date.now() - readingStartTime) / 1000);
+        const mins = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+        const secs = String(elapsedSeconds % 60).padStart(2, '0');
+        document.getElementById('timerVal').textContent = `${mins}:${secs}`;
+      }, 500);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function resetTimer() {
+      stopTimer();
+      readingStartTime = null;
+      elapsedSeconds = 0;
+      document.getElementById('timerVal').textContent = '00:00';
+    }
+
+    let drillIndex = 0;
+    let drillWordsList = [];
+    let drillRecognition = null;
+    let drillListening = false;
+
+    function startPracticeDrill() {
+      drillWordsList = [...new Set(trickyWords)];
+      if (drillWordsList.length === 0) return;
+      drillIndex = 0;
+      showScreen('drillScreen');
+      loadDrillWord();
+    }
+
+    function loadDrillWord() {
+      const word = drillWordsList[drillIndex];
+      document.getElementById('drillWordDisplay').textContent = word;
+      document.getElementById('drillCounter').textContent = `Word ${drillIndex + 1} of ${drillWordsList.length}`;
+      document.getElementById('drillFeedback').textContent = '';
+      setMascotState('idle', `Let's practice "${word}"!`);
+      setTimeout(() => speakCurrentDrillWord(), 400);
+    }
+
+    function speakCurrentDrillWord() {
+      const word = drillWordsList[drillIndex];
+      speak(word, currentLanguage, 0.6);
+    }
+
+    function toggleDrillListen() {
+      if (drillListening) stopDrillListen();
+      else startDrillListen();
+    }
+
+    function startDrillListen() {
+      if (!SpeechRecognition) return;
+      drillRecognition = new SpeechRecognition();
+      drillRecognition.lang = currentLanguage;
+      drillRecognition.interimResults = false;
+
+      drillListening = true;
+      document.getElementById('drillMicBtn').classList.add('active');
+      document.getElementById('drillMicLabel').textContent = 'Listening...';
+
+      drillRecognition.onresult = (e) => {
+        const spoken = e.results[0][0].transcript.trim();
+        const target = drillWordsList[drillIndex];
+        const fbEl = document.getElementById('drillFeedback');
+
+        if (isFuzzyMatch(target, spoken)) {
+          fbEl.innerHTML = '<span style="color:#059669;">Super job! ⭐ (+10 XP)</span>';
+          playChime();
+          setMascotState('happy', 'You got it! 🎉');
+          userXp += 10;
+          saveUserXp(userXp);
+          updateXpDisplay();
+
+          setTimeout(() => {
+            drillIndex++;
+            if (drillIndex < drillWordsList.length) {
+              loadDrillWord();
+            } else {
+              alert('Awesome! You mastered all your tricky words! 🦉🌟');
+              showScreen('resultsScreen');
+            }
+          }, 1200);
+        } else {
+          fbEl.innerHTML = '<span style="color:#D97706;">Almost there! Tap the speaker to hear Buddy again. 🦉</span>';
+          playBoop();
+          setMascotState('encouraging', 'Try one more time!');
+        }
+        stopDrillListen();
+      };
+
+      drillRecognition.onerror = () => stopDrillListen();
+      drillRecognition.onend = () => stopDrillListen();
+
+      try { drillRecognition.start(); } catch (e) { stopDrillListen(); }
+    }
+
+    function stopDrillListen() {
+      drillListening = false;
+      document.getElementById('drillMicBtn').classList.remove('active');
+      document.getElementById('drillMicLabel').textContent = 'Tap to Repeat';
+      if (drillRecognition) {
+        try { drillRecognition.stop(); } catch (e) {}
+      }
+    }
+
+    /* =====================================================================
+       18. MASCOT EMOTION & HIGHLIGHTS
+       ===================================================================== */
+    function setMascotState(state, message) {
+      const svg = document.getElementById('mascotSvg');
+      svg.className = 'mascot-svg';
+
+      if (state === 'idle') svg.classList.add('owl-idle');
+      else if (state === 'listening') svg.classList.add('owl-listening');
+      else if (state === 'happy') svg.classList.add('owl-happy');
+      else if (state === 'encouraging') svg.classList.add('owl-encouraging');
+
+      if (message) {
+        document.getElementById('mascotBubble').textContent = message;
+      }
+    }
+
+    function toggleMagicHighlight() {
+      magicHighlightEnabled = !magicHighlightEnabled;
+      const display = document.getElementById('passageDisplay');
+      const text = document.getElementById('magicStatusText');
+      if (magicHighlightEnabled) {
+        display.classList.add('magic-active');
+        text.textContent = 'ON';
+      } else {
+        display.classList.remove('magic-active');
+        text.textContent = 'OFF';
+      }
+    }
+
+    /* =====================================================================
+       19. NAVIGATION & SCREEN MANAGEMENT
+       ===================================================================== */
+    function showScreen(screenId) {
+      const screens = ['homeScreen', 'readingScreen', 'resultsScreen', 'drillScreen', 'stickersScreen', 'teacherScreen', 'outfitsScreen'];
+      screens.forEach(id => {
+        const el = document.getElementById(id);
+        if (id === screenId) el.classList.remove('hidden');
+        else el.classList.add('hidden');
+      });
+
+      if (screenId === 'homeScreen') {
+        setMascotState('idle', "Hi, I'm Bolo! Pick a story and let's read!");
+        updateDailyChallengeBanner();
+      } else if (screenId === 'stickersScreen') {
+        renderStickerBook();
+      } else if (screenId === 'teacherScreen') {
+        renderTeacherView();
+      } else if (screenId === 'outfitsScreen') {
+        renderOutfitsGrid();
+      }
+    }
+
+    function goToHome() {
+      stopReadingSession();
+      showScreen('homeScreen');
+      renderPassageList();
+    }
+
+    function stopAndBackToHome() {
+      if (sessionActive) {
+        if (!confirm('Leave current reading session?')) return;
+      }
+      goToHome();
+    }
+
+    function setLanguage(lang) {
+      currentLanguage = lang;
+      document.querySelectorAll('[data-lang]').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+      });
+      renderPassageList();
+      updateDailyChallengeBanner();
+    }
+
+    function setLevel(level) {
+      currentLevel = level;
+      document.querySelectorAll('[data-level]').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-level') === level);
+      });
+      renderPassageList();
+    }
+
+    function renderPassageList() {
+      const container = document.getElementById('passagesList');
+      container.innerHTML = '';
+      const list = PASSAGES[currentLanguage][currentLevel] || [];
+
+      list.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'passage-card';
+        card.onclick = () => {
+          isDailyQuest = false;
+          selectPassage(item);
+        };
+        card.innerHTML = `
+          <div class="passage-info">
+            <h4>${item.title}</h4>
+            <p>${item.text}</p>
+          </div>
+          <div class="start-arrow">➔</div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function selectPassage(passage) {
+      currentPassage = passage;
+      resetTimer();
+
+      passageWordsList = passage.text.trim().split(/\s+/);
+      const display = document.getElementById('passageDisplay');
+      display.innerHTML = '';
+      wordElements = [];
+
+      passageWordsList.forEach((word) => {
+        const span = document.createElement('span');
+        span.className = 'word';
+        span.textContent = word;
+        display.appendChild(span);
+        wordElements.push(span);
+      });
+
+      currentWordIndex = 0;
+      updateCurrentWordHighlight();
+
+      showScreen('readingScreen');
+      setMascotState('idle', "Press 'Start Reading' and read each word proudly!");
+    }
+
+    function readPassageAgain() {
+      if (currentPassage) selectPassage(currentPassage);
+    }
+
+    /* =====================================================================
+       20. PROGRESS TRACKING & LOCALSTORAGE
+       ===================================================================== */
+    const STORAGE_KEY = 'bolo_buddy_sessions';
+    const STICKERS_KEY = 'bolo_buddy_stickers';
+
+    function getSessionHistory() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveSessionData(session) {
+      const list = getSessionHistory();
+      list.unshift(session);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    }
+
+    function getUnlockedStickers() {
+      try {
+        return JSON.parse(localStorage.getItem(STICKERS_KEY) || '["st_owl"]');
+      } catch (e) {
+        return ['st_owl'];
+      }
+    }
+
+    function awardRandomSticker(forceGold = false) {
+      const unlocked = getUnlockedStickers();
+      let pool = ALL_STICKERS.filter(s => !unlocked.includes(s.id));
+      if (forceGold) {
+        const goldPool = pool.filter(s => s.id.startsWith('st_gold') || s.id.startsWith('st_sun') || s.id.startsWith('st_cosmic'));
+        if (goldPool.length > 0) pool = goldPool;
+      }
+      if (pool.length === 0) return null;
+
+      const randomChoice = pool[Math.floor(Math.random() * pool.length)];
+      unlocked.push(randomChoice.id);
+      localStorage.setItem(STICKERS_KEY, JSON.stringify(unlocked));
+      return randomChoice;
+    }
+
+    function renderStickerBook() {
+      const grid = document.getElementById('stickersGrid');
+      grid.innerHTML = '';
+      const unlocked = getUnlockedStickers();
+      document.getElementById('stickerCountBadge').textContent = `${unlocked.length} / ${ALL_STICKERS.length} Unlocked`;
+
+      ALL_STICKERS.forEach(s => {
+        const isUnlocked = unlocked.includes(s.id);
+        const card = document.createElement('div');
+        card.className = `sticker-item ${isUnlocked ? 'unlocked' : 'locked'}`;
+        card.innerHTML = `
+          <div class="sticker-icon">${s.icon}</div>
+          <div class="sticker-name">${isUnlocked ? s.name : '???'}</div>
+        `;
+        if (isUnlocked) {
+          card.onclick = () => {
+            speak(s.name, 'en-IN', 0.9);
+            setMascotState('happy', `You unlocked ${s.name}! 🌟`);
+          };
+        }
+        grid.appendChild(card);
+      });
+    }
+
+    /* =====================================================================
+       21. TEACHER VIEW & CSV EXPORT
+       ===================================================================== */
+    function renderTeacherView() {
+      const history = getSessionHistory();
+      const tbody = document.getElementById('historyTableBody');
+      tbody.innerHTML = '';
+
+      document.getElementById('teacherTotalXp').textContent = `${userXp} XP`;
+
+      if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#94A3B8;">No reading sessions recorded yet.</td></tr>';
+        document.getElementById('teacherStreak').textContent = '🔥 0 d';
+        document.getElementById('teacherAvgWcpm').textContent = '0';
+        document.getElementById('teacherTotalSessions').textContent = '0';
+        drawWcpmChart([]);
+        return;
+      }
+
+      const streak = calculateDayStreak(history);
+      document.getElementById('teacherStreak').textContent = `🔥 ${streak} d`;
+
+      const avgWcpm = Math.round(history.reduce((acc, h) => acc + (h.wcpm || 0), 0) / history.length);
+      document.getElementById('teacherAvgWcpm').textContent = avgWcpm;
+      document.getElementById('teacherTotalSessions').textContent = history.length;
+
+      history.slice(0, 30).forEach(h => {
+        const d = new Date(h.date);
+        const dateStr = `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${dateStr}</td>
+          <td>${h.lang}</td>
+          <td>${h.passageTitle || 'Story'}</td>
+          <td><strong>${h.wcpm}</strong></td>
+          <td>${h.accuracy}%</td>
+          <td>${(h.trickyWords || []).join(', ') || 'None'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      drawWcpmChart(history.slice(0, 15).reverse());
+    }
+
+    function calculateDayStreak(history) {
+      if (!history || history.length === 0) return 0;
+      const days = [...new Set(history.map(h => new Date(h.date).toDateString()))];
+      return days.length;
+    }
+
+    function drawWcpmChart(data) {
+      const canvas = document.getElementById('wcpmChart');
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const w = rect.width;
+      const h = rect.height;
+      ctx.clearRect(0, 0, w, h);
+
+      if (!data || data.length === 0) {
+        ctx.fillStyle = '#94A3B8';
+        ctx.font = '14px Nunito';
+        ctx.textAlign = 'center';
+        ctx.fillText('Complete reading sessions to visualize WCPM progress!', w / 2, h / 2);
+        return;
+      }
+
+      const padding = 35;
+      const graphW = w - padding * 2;
+      const graphH = h - padding * 2;
+      const maxVal = Math.max(60, ...data.map(d => d.wcpm || 0)) + 15;
+
+      ctx.strokeStyle = currentTheme === 'dark' ? '#334155' : '#E2E8F0';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = padding + (graphH / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding, y);
+        ctx.lineTo(w - padding, y);
+        ctx.stroke();
+
+        ctx.fillStyle = '#94A3B8';
+        ctx.font = '10px Nunito';
+        ctx.textAlign = 'right';
+        ctx.fillText(Math.round(maxVal - (maxVal / 4) * i), padding - 8, y + 3);
+      }
+
+      const step = graphW / Math.max(data.length - 1, 1);
+      ctx.beginPath();
+      ctx.strokeStyle = '#4E65FF';
+      ctx.lineWidth = 3;
+
+      data.forEach((d, idx) => {
+        const x = padding + idx * step;
+        const y = padding + graphH - ((d.wcpm || 0) / maxVal) * graphH;
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      data.forEach((d, idx) => {
+        const x = padding + idx * step;
+        const y = padding + graphH - ((d.wcpm || 0) / maxVal) * graphH;
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#FF7A59';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#FFF';
+        ctx.stroke();
+      });
+    }
+
+    function exportSessionsCSV() {
+      const history = getSessionHistory();
+      if (history.length === 0) {
+        alert('No sessions to export!');
+        return;
+      }
+
+      let csvContent = 'Date,Language,Level,Story,WCPM,Accuracy,TimeSeconds,TrickyWords\n';
+      history.forEach(h => {
+        const dateStr = `"${new Date(h.date).toLocaleString()}"`;
+        const tricky = `"${(h.trickyWords || []).join('; ')}"`;
+        csvContent += `${dateStr},${h.lang},${h.level},"${h.passageTitle}",${h.wcpm},${h.accuracy}%,${h.seconds},${tricky}\n`;
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `bolo_buddy_reading_history_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    /* =====================================================================
+       22. CONFETTI CANNON
+       ===================================================================== */
+    function triggerConfetti() {
+      const canvas = document.getElementById('confettiCanvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const particles = [];
+      const colors = ['#FF7A59', '#4E65FF', '#06D6A0', '#FFD166', '#8B5CF6', '#F472B6'];
+
+      for (let i = 0; i < 110; i++) {
+        particles.push({
+          x: canvas.width / 2,
+          y: canvas.height / 3,
+          vx: (Math.random() - 0.5) * 14,
+          vy: (Math.random() - 0.8) * 16,
+          size: Math.random() * 8 + 4,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          rotation: Math.random() * 360,
+          rotSpeed: (Math.random() - 0.5) * 9
+        });
+      }
+
+      let frame = 0;
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.35;
+          p.rotation += p.rotSpeed;
+
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate((p.rotation * Math.PI) / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          ctx.restore();
+        });
+
+        frame++;
+        if (frame < 130) requestAnimationFrame(animate);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      animate();
+    }
+
+    /* =====================================================================
+       23. LIVING BACKGROUND EFFECTS
+       ===================================================================== */
+    function spawnBubbles() {
+      const layer = document.getElementById('bubblesLayer');
+      const palette = [
+        'rgba(255, 122, 89, 0.25)',
+        'rgba(78, 101, 255, 0.2)',
+        'rgba(139, 92, 246, 0.2)',
+        'rgba(6, 214, 160, 0.2)',
+        'rgba(255, 209, 102, 0.25)',
+        'rgba(255, 159, 243, 0.2)',
+        'rgba(146, 239, 253, 0.25)'
+      ];
+      for (let i = 0; i < 18; i++) {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        const size = 20 + Math.random() * 60;
+        const color = palette[Math.floor(Math.random() * palette.length)];
+        const duration = 12 + Math.random() * 20;
+        const delay = Math.random() * 15;
+        bubble.style.cssText = `
+          width: ${size}px; height: ${size}px;
+          left: ${Math.random() * 100}%;
+          background: radial-gradient(circle at 30% 30%, ${color.replace(/[\d.]+\)$/, '0.5)')}, ${color});
+          animation-duration: ${duration}s;
+          animation-delay: ${delay}s;
+          box-shadow: inset 0 0 ${size / 3}px rgba(255,255,255,0.3);
+        `;
+        layer.appendChild(bubble);
+      }
+    }
+
+    function spawnClouds() {
+      const layer = document.getElementById('cloudsLayer');
+      for (let i = 0; i < 5; i++) {
+        const cloud = document.createElement('div');
+        cloud.className = 'cloud';
+        const w = 200 + Math.random() * 300;
+        const h = 60 + Math.random() * 80;
+        const top = 5 + Math.random() * 60;
+        const duration = 40 + Math.random() * 40;
+        const delay = Math.random() * 30;
+        cloud.style.cssText = `
+          width: ${w}px; height: ${h}px;
+          top: ${top}%;
+          opacity: ${0.25 + Math.random() * 0.25};
+          animation-duration: ${duration}s;
+          animation-delay: ${delay}s;
+        `;
+        layer.appendChild(cloud);
+      }
+    }
+
+    function spawnStars() {
+      const layer = document.getElementById('starsLayer');
+      const colors = ['#FFD166', '#FF9FF3', '#92EFFD', '#A78BFA', '#FFFFFF'];
+      for (let i = 0; i < 35; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        const size = 2 + Math.random() * 5;
+        const duration = 1.5 + Math.random() * 3;
+        const delay = Math.random() * 4;
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        star.style.cssText = `
+          width: ${size}px; height: ${size}px;
+          top: ${Math.random() * 100}%;
+          left: ${Math.random() * 100}%;
+          background: ${color};
+          box-shadow: 0 0 ${size * 2}px ${size}px ${color}44;
+          animation-duration: ${duration}s;
+          animation-delay: ${delay}s;
+        `;
+        layer.appendChild(star);
+      }
+    }
+
+    function initSparkleCanvas() {
+      const canvas = document.getElementById('sparkleCanvas');
+      const ctx = canvas.getContext('2d');
+      let width, height;
+      const particles = [];
+      const PARTICLE_COUNT = 50;
+
+      function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: -0.15 - Math.random() * 0.3,
+          size: 1 + Math.random() * 2.5,
+          alpha: 0.1 + Math.random() * 0.4,
+          alphaDir: (Math.random() > 0.5 ? 1 : -1) * (0.003 + Math.random() * 0.008),
+          hue: [40, 200, 280, 320, 160][Math.floor(Math.random() * 5)],
+        });
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, width, height);
+        particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.alpha += p.alphaDir;
+
+          if (p.alpha > 0.55) { p.alpha = 0.55; p.alphaDir *= -1; }
+          if (p.alpha < 0.05) { p.alpha = 0.05; p.alphaDir *= -1; }
+
+          if (p.y < -10) { p.y = height + 10; p.x = Math.random() * width; }
+          if (p.x < -10) p.x = width + 10;
+          if (p.x > width + 10) p.x = -10;
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${p.hue}, 80%, 75%, ${p.alpha})`;
+          ctx.shadowBlur = p.size * 4;
+          ctx.shadowColor = `hsla(${p.hue}, 80%, 75%, ${p.alpha * 0.6})`;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        });
+        requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    // Initialize application on load
+    window.addEventListener('DOMContentLoaded', () => {
+      userXp = getUserXp();
+      equippedOutfit = getEquippedOutfit();
+      applyOutfitToSvg(equippedOutfit);
+
+      loadA11ySettings();
+      updateXpDisplay();
+      renderPassageList();
+      updateDailyChallengeBanner();
+
+      spawnBubbles();
+      spawnClouds();
+      spawnStars();
+      initSparkleCanvas();
+    });
+  </script>
+</body>
+</html>
